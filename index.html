@@ -135,11 +135,13 @@
   .day-tile.readonly.aluno-clickable:hover{border-color:var(--amber);}
   .day-tile.filled-comigo{background:var(--blue-dim);border-color:var(--blue);}
   .day-tile.filled-sozinho{background:var(--amber-dim);border-color:var(--amber);}
+  .day-tile.filled-reposicao{background:var(--green-dim);border-color:var(--green);}
   .day-name{font-family:'Oswald';font-size:13px;letter-spacing:.04em;}
   .day-date{font-size:11px;color:var(--ink-soft);margin-bottom:8px;}
   .day-tag{font-size:10.5px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:20px;display:inline-block;margin-bottom:6px;width:fit-content;}
   .day-tag.comigo{background:var(--blue);color:#fff;}
   .day-tag.sozinho{background:var(--amber);color:#5c3d00;}
+  .day-tag.reposicao{background:var(--green);color:#fff;}
   .day-empty-lbl{font-size:12px;color:#B7B5AA;margin-top:auto;}
   .muscle-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:auto;}
   .muscle-badge{color:var(--ink-soft);padding:2px 8px;font-size:10.5px;font-weight:700;}
@@ -149,10 +151,12 @@
   .modal{background:#fff;border-radius:14px;padding:28px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;}
   .modal h3{font-size:18px;margin-bottom:4px;}
   .modal .modal-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;text-transform:none;letter-spacing:0;font-family:'Inter';}
-  .radio-row{display:flex;gap:10px;margin-bottom:18px;}
+  .radio-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;}
+  .radio-row .radio-opt{min-width:120px;}
   .radio-opt{flex:1;border:1.5px solid var(--border);border-radius:9px;padding:11px;text-align:center;font-weight:600;font-size:13.5px;cursor:pointer;}
   .radio-opt.sel-comigo{background:var(--blue);color:#fff;border-color:var(--blue);}
   .radio-opt.sel-sozinho{background:var(--amber);color:#5c3d00;border-color:var(--amber);}
+  .radio-opt.sel-reposicao{background:var(--green);color:#fff;border-color:var(--green);}
   .radio-opt.sel-falta{background:var(--red);color:#fff;border-color:var(--red);}
   .day-tag.falta{background:var(--red);color:#fff;}
   .day-tile.filled-falta{background:var(--red-dim);border-color:var(--red);}
@@ -803,6 +807,7 @@ function renderTrainingModal(readonly){
         <div class="radio-row">
           <div class="radio-opt ${modalType==='comigo'?'sel-comigo':''}" onclick="setModalType('comigo')">Treinou comigo</div>
           <div class="radio-opt ${modalType==='sozinho'?'sel-sozinho':''}" onclick="setModalType('sozinho')">Treinou sozinho</div>
+          <div class="radio-opt ${modalType==='reposicao'?'sel-reposicao':''}" onclick="setModalType('reposicao')">Aula de reposição</div>
           <div class="radio-opt ${modalType==='falta'?'sel-falta':''}" onclick="setModalType('falta')">Faltou</div>
         </div>
         ${modalType==='comigo' ? `
@@ -878,7 +883,7 @@ function renderFinanceiro(student, readonly){
 }
 
 /* ============ RENDER: TREINO ============ */
-function trainingTagLabel(type){ return type==='comigo' ? 'Comigo' : type==='sozinho' ? 'Sozinho' : 'Faltou'; }
+function trainingTagLabel(type){ return type==='comigo' ? 'Comigo' : type==='sozinho' ? 'Sozinho' : type==='reposicao' ? 'Reposição' : 'Faltou'; }
 function renderTreino(student, readonly){
   const weekDates = getWeekDates(weekOffset);
   const rangeLabel = `${fmtBR(toISO(weekDates[0]))} — ${fmtBR(toISO(weekDates[5]))}`;
@@ -886,7 +891,7 @@ function renderTreino(student, readonly){
   const weekIsoSet = weekDates.map(d=>toISO(d));
   const weekEntries = student.trainings.filter(t=>weekIsoSet.includes(t.date));
   const previstosSemana = weekDates.filter((d,i)=> (schedule[SCHEDULE_DAYS[i]]||{}).active).length;
-  const realizadosSemana = weekEntries.filter(t=>t.type==='comigo'||t.type==='sozinho').length;
+  const realizadosSemana = weekEntries.filter(t=>t.type==='comigo'||t.type==='sozinho'||t.type==='reposicao').length;
   const faltasSemana = weekEntries.filter(t=>t.type==='falta').length;
 
   const tiles = weekDates.map((d,i)=>{
@@ -908,7 +913,7 @@ function renderTreino(student, readonly){
     }
     let bodyHtml;
     if(entry){
-      cls += entry.type==='comigo' ? ' filled-comigo' : entry.type==='sozinho' ? ' filled-sozinho' : ' filled-falta';
+      cls += entry.type==='comigo' ? ' filled-comigo' : entry.type==='sozinho' ? ' filled-sozinho' : entry.type==='reposicao' ? ' filled-reposicao' : ' filled-falta';
       const badges = (entry.muscles||[]).map(m=>{
         return `<span class="muscle-badge">${m}</span>`;
       }).join('');
@@ -944,7 +949,7 @@ function renderTreino(student, readonly){
   }).join('') || `<tr><td colspan="3" style="color:var(--ink-soft);padding:20px 8px;">Nenhum treino registrado neste mês.</td></tr>`;
 
   const previstosMes = countPrevistosNoMes(student, ty, tm);
-  const realizadosMes = monthHistory.filter(t=>t.type==='comigo'||t.type==='sozinho').length;
+  const realizadosMes = monthHistory.filter(t=>t.type==='comigo'||t.type==='sozinho'||t.type==='reposicao').length;
   const faltasMes = monthHistory.filter(t=>t.type==='falta').length;
 
   return `
