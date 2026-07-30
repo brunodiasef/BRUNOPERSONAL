@@ -989,11 +989,11 @@ function renderTreino(student, readonly){
       <button class="wk-btn" onclick="changeWeek(1)">Próxima semana →</button>
     </div>
     <div class="board">${tiles}</div>
-    <div class="cards-row" style="margin-bottom:20px;">
-      <div class="score-card accent-blue"><div class="lbl">Treinos previstos na semana</div><div class="val">${previstosSemana}</div></div>
-      <div class="score-card accent-green"><div class="lbl">Treinos realizados</div><div class="val">${realizadosSemana}</div></div>
-      <div class="score-card" style="border-color:var(--green);"><div class="lbl" style="color:var(--green);">Aulas de reposição</div><div class="val" style="color:var(--green);">${reposicaoSemana}</div></div>
-      <div class="score-card accent-red"><div class="lbl">Faltas na semana</div><div class="val">${faltasSemana}</div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:22px;margin-bottom:24px;font-size:13px;color:var(--ink-soft);">
+      <span>Treinos previstos na semana: <b style="color:var(--ink-soft);">${previstosSemana}</b></span>
+      <span>Treinos realizados: <b style="color:var(--ink-soft);">${realizadosSemana}</b></span>
+      <span>Aulas de reposição: <b style="color:var(--ink-soft);">${reposicaoSemana}</b></span>
+      <span>Faltas na semana: <b style="color:var(--ink-soft);">${faltasSemana}</b></span>
     </div>
     <div class="panel">
       <h4>Histórico do mês</h4>
