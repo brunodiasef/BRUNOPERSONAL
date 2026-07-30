@@ -539,7 +539,7 @@ function saveTraining(){
   } else {
     if(modalMuscles.length===0){ alert('Selecione ao menos um grupamento muscular.'); return; }
     const entry = {id:uid(), date:modalDate, type:modalType, muscles:[...modalMuscles]};
-    entry.time = modalType==='comigo' ? (modalTime || null) : null;
+    entry.time = (modalType==='comigo'||modalType==='reposicao') ? (modalTime || null) : null;
     s.trainings.push(entry);
   }
   saveData();
@@ -810,7 +810,7 @@ function renderTrainingModal(readonly){
           <div class="radio-opt ${modalType==='reposicao'?'sel-reposicao':''}" onclick="setModalType('reposicao')">Aula de reposição</div>
           <div class="radio-opt ${modalType==='falta'?'sel-falta':''}" onclick="setModalType('falta')">Faltou</div>
         </div>
-        ${modalType==='comigo' ? `
+        ${(modalType==='comigo'||modalType==='reposicao') ? `
         <label class="field-label">Horário do treino</label>
         <input type="time" id="modal-time" class="input" value="${modalTime}" oninput="modalTime=this.value">
         ` : ''}
@@ -917,7 +917,7 @@ function renderTreino(student, readonly){
       const badges = (entry.muscles||[]).map(m=>{
         return `<span class="muscle-badge">${m}</span>`;
       }).join('');
-      const timeLbl = entry.type==='comigo' && entry.time ? ` · ${entry.time}` : '';
+      const timeLbl = (entry.type==='comigo'||entry.type==='reposicao') && entry.time ? ` · ${entry.time}` : '';
       bodyHtml = `<span class="day-tag ${entry.type}">${trainingTagLabel(entry.type)}${timeLbl}</span><div class="muscle-badges">${badges}</div>`;
     } else if(sched.active){
       cls += ' scheduled-auto';
@@ -940,7 +940,7 @@ function renderTreino(student, readonly){
     const badges = (t.muscles||[]).map(m=>{
       return `<span class="muscle-badge">${m}</span>`;
     }).join(' ');
-    const timeLbl = t.type==='comigo' && t.time ? ` · ${t.time}` : '';
+    const timeLbl = (t.type==='comigo'||t.type==='reposicao') && t.time ? ` · ${t.time}` : '';
     return `<tr>
       <td>${fmtBR(t.date)}</td>
       <td><span class="day-tag ${t.type}" style="display:inline-block;">${trainingTagLabel(t.type)}${timeLbl}</span></td>
@@ -951,6 +951,7 @@ function renderTreino(student, readonly){
   const previstosMes = countPrevistosNoMes(student, ty, tm);
   const realizadosMes = monthHistory.filter(t=>t.type==='comigo'||t.type==='sozinho'||t.type==='reposicao').length;
   const faltasMes = monthHistory.filter(t=>t.type==='falta').length;
+  const reposicaoMes = monthHistory.filter(t=>t.type==='reposicao').length;
 
   return `
     <div class="week-nav">
@@ -972,6 +973,7 @@ function renderTreino(student, readonly){
       <div class="cards-row" style="margin-bottom:20px;">
         <div class="score-card accent-blue"><div class="lbl">Treinos previstos no mês</div><div class="val">${previstosMes}</div></div>
         <div class="score-card accent-green"><div class="lbl">Treinos realizados no mês</div><div class="val">${realizadosMes}</div></div>
+        <div class="score-card" style="border-color:var(--green);"><div class="lbl" style="color:var(--green);">Aulas de reposição no mês</div><div class="val" style="color:var(--green);">${reposicaoMes}</div></div>
         <div class="score-card accent-red"><div class="lbl">Faltas no mês</div><div class="val">${faltasMes}</div></div>
       </div>
       <table>
