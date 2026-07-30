@@ -286,7 +286,7 @@ async function saveData(){
 async function pollForUpdates(){
   if(storageUnavailable || !dbConfigured()) return;
   // não atualiza durante edições ativas, para não perder o que está sendo digitado
-  if(modalDate || showNewStudentModal || showChangePassModal) return;
+  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal) return;
   try{
     const res = await fetch(`${FIREBASE_DB_URL}/${STORAGE_KEY}.json`);
     const json = await res.json();
@@ -315,6 +315,7 @@ let modalStudentId = null;
 let modalAlunoMode = false;
 let showNewStudentModal = false;
 let showChangePassModal = false;
+let showStudentChangePassModal = false;
 let showGeneralSchedule = false;
 
 const today = new Date();
@@ -378,6 +379,17 @@ function saveAdminPass(){
   const p1=document.getElementById('new-admin-pass').value;
   if(p1 && p1.length>=4){ DATA.adminPassword=p1; saveData(); showChangePassModal=false; render(); }
   else alert('A senha deve ter ao menos 4 caracteres.');
+}
+function openStudentChangePass(){ showStudentChangePassModal=true; render(); }
+function closeStudentChangePass(){ showStudentChangePassModal=false; render(); }
+function saveStudentPass(){
+  const p1=document.getElementById('new-student-pass').value;
+  if(!p1 || p1.length<4){ alert('A senha deve ter ao menos 4 caracteres.'); return; }
+  const s=findStudent(currentUser.studentId);
+  s.password=p1;
+  saveData();
+  showStudentChangePassModal=false;
+  render();
 }
 
 /* ============ AÇÕES: ALUNOS ============ */
@@ -768,6 +780,22 @@ function renderChangePassModal(){
     </div>`;
 }
 
+function renderStudentChangePassModal(){
+  if(!showStudentChangePassModal) return '';
+  return `
+    <div class="overlay" onclick="if(event.target===this)closeStudentChangePass()">
+      <div class="modal" style="max-width:360px;">
+        <h3>Alterar minha senha</h3>
+        <p class="modal-sub">Essa é a senha que você usa para entrar como aluno.</p>
+        <div class="field-inline"><label class="field-label">Nova senha</label><input id="new-student-pass" type="password" class="input" style="margin-bottom:0;"></div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeStudentChangePass()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveStudentPass()">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderTrainingModal(readonly){
   if(!modalDate) return '';
   const d = parseISO(modalDate);
@@ -893,6 +921,7 @@ function renderTreino(student, readonly){
   const previstosSemana = weekDates.filter((d,i)=> (schedule[SCHEDULE_DAYS[i]]||{}).active).length;
   const realizadosSemana = weekEntries.filter(t=>t.type==='comigo'||t.type==='sozinho'||t.type==='reposicao').length;
   const faltasSemana = weekEntries.filter(t=>t.type==='falta').length;
+  const reposicaoSemana = weekEntries.filter(t=>t.type==='reposicao').length;
 
   const tiles = weekDates.map((d,i)=>{
     const iso = toISO(d);
@@ -959,12 +988,13 @@ function renderTreino(student, readonly){
       <div class="wk-label">${rangeLabel}${weekOffset===0?' (semana atual)':''}</div>
       <button class="wk-btn" onclick="changeWeek(1)">Próxima semana →</button>
     </div>
+    <div class="board">${tiles}</div>
     <div class="cards-row" style="margin-bottom:20px;">
       <div class="score-card accent-blue"><div class="lbl">Treinos previstos na semana</div><div class="val">${previstosSemana}</div></div>
       <div class="score-card accent-green"><div class="lbl">Treinos realizados</div><div class="val">${realizadosSemana}</div></div>
+      <div class="score-card" style="border-color:var(--green);"><div class="lbl" style="color:var(--green);">Aulas de reposição</div><div class="val" style="color:var(--green);">${reposicaoSemana}</div></div>
       <div class="score-card accent-red"><div class="lbl">Faltas na semana</div><div class="val">${faltasSemana}</div></div>
     </div>
-    <div class="board">${tiles}</div>
     <div class="panel">
       <h4>Histórico do mês</h4>
       <div class="form-row" style="margin-bottom:16px;">
@@ -1107,7 +1137,10 @@ function renderAlunoApp(){
         <img src="${LOGO_URL}" alt="logo" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:8px;padding:3px;">
         <div><div class="tb-title">${student.name}</div><div class="tb-sub">Área do aluno · Bruno Personal Trainer · 27 998860938</div></div>
       </div>
-      <div class="tb-right"><button class="tb-btn" onclick="logout()">Sair</button></div>
+      <div class="tb-right">
+        <button class="tb-btn" onclick="openStudentChangePass()">Alterar minha senha</button>
+        <button class="tb-btn" onclick="logout()">Sair</button>
+      </div>
     </div>
     <div class="layout">
       <div class="main" style="width:100%;">
@@ -1121,6 +1154,7 @@ function renderAlunoApp(){
       </div>
     </div>
     ${renderTrainingModal(true)}
+    ${renderStudentChangePassModal()}
   `;
 }
 
