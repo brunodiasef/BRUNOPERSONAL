@@ -1103,6 +1103,8 @@ function renderAdminApp(){
       </div>
       <div class="tb-right">
         <button class="tb-btn" onclick="goHome()">Página inicial</button>
+        <button class="tb-btn" style="background:${showGeneralSchedule?'var(--blue)':'rgba(255,255,255,0.08)'};" onclick="openGeneralSchedule()">Horário Geral</button>
+        <button class="tb-btn" style="background:var(--blue);" onclick="openNewStudentModal()">+ Novo aluno</button>
         <button class="tb-btn" onclick="exportBackup()">Exportar backup</button>
         <button class="tb-btn" onclick="triggerImport()">Importar backup</button>
         <input type="file" id="import-file" accept="application/json" style="display:none;" onchange="importBackup(event)">
@@ -1112,8 +1114,6 @@ function renderAdminApp(){
     </div>
     <div class="layout">
       <div class="sidebar">
-        <button class="add-student-btn" onclick="openNewStudentModal()">+ Novo aluno</button>
-        <button class="add-student-btn" style="background:${showGeneralSchedule?'var(--blue)':'var(--graphite)'};margin-bottom:16px;" onclick="openGeneralSchedule()">📅 Horário Geral</button>
         <h3>Alunos</h3>
         ${sidebarItems}
         ${sidebarSummary}
