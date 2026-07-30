@@ -1047,7 +1047,7 @@ function renderPerfil(student){
 
 /* ============ RENDER: ADMIN APP ============ */
 function renderAdminApp(){
-  const students = DATA.students;
+  const students = [...DATA.students].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR',{sensitivity:'base'}));
   const thisMonthKey = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
   const totalMesTodos = students.reduce((s,st)=>s+totalMonth(st, thisMonthKey),0);
   const totalAnoTodos = students.reduce((s,st)=>s+totalYear(st, today.getFullYear()),0);
