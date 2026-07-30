@@ -40,6 +40,12 @@
   .brand-mark{font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:0.35em;color:var(--amber);margin-bottom:18px;}
   .login-side h1{font-size:52px;line-height:1.02;max-width:460px;}
   .login-side p{color:#B9BAC4;max-width:420px;margin-top:18px;font-size:15px;line-height:1.6;}
+  .login-logo-inline{width:96px;height:96px;object-fit:contain;background:#fff;border-radius:16px;padding:8px;margin-bottom:18px;}
+  .login-logo-float{display:none;}
+  @media(min-width:901px){
+    .login-logo-inline{display:none;}
+    .login-logo-float{display:block;position:absolute;right:9%;top:50%;transform:translateY(-50%);width:280px;height:280px;object-fit:contain;background:#fff;border-radius:28px;padding:20px;z-index:1;}
+  }
   .score-row{display:flex;gap:26px;margin-top:46px;}
   .score-item .num{font-family:'Oswald',sans-serif;font-size:34px;color:var(--amber);}
   .score-item .lbl{font-size:11px;color:#9698A5;text-transform:uppercase;letter-spacing:0.08em;}
@@ -617,7 +623,8 @@ function renderLogin(){
   document.getElementById('app').innerHTML = `
     <div class="login-wrap">
       <div class="login-side">
-        <img src="${LOGO_URL}" alt="Bruno Personal Trainer" style="width:96px;height:96px;object-fit:contain;background:#fff;border-radius:16px;padding:8px;margin-bottom:18px;">
+        <img class="login-logo-float" src="${LOGO_URL}" alt="Bruno Personal Trainer">
+        <img class="login-logo-inline" src="${LOGO_URL}" alt="Bruno Personal Trainer">
         <div class="brand-mark">CONTROLE FINANCEIRO • TREINO</div>
         <h1>Não espere a motivação, construa a disciplina! Transforme esforço em resultados.</h1>
         <p>Controle a frequência, o treino e os pagamentos em um só lugar.</p>
