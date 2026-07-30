@@ -892,12 +892,14 @@ function renderFinanceiro(student, readonly){
         <div class="form-group"><label class="field-label">Data</label><input type="date" id="pay-date" class="input" value="${toISO(today)}"></div>
         <div class="form-group"><label class="field-label">Valor (R$)</label><input type="number" id="pay-value" class="input" value="${student.paymentValue}"></div>
         <div class="form-group"><label class="field-label">Tipo</label>
-          <select id="pay-type" class="input">
-            <option value="mensal" ${student.paymentType==='mensal'?'selected':''}>Mensal</option>
-            <option value="semanal" ${student.paymentType==='semanal'?'selected':''}>Semanal</option>
-          </select>
+          <div style="display:flex;gap:8px;">
+            <select id="pay-type" class="input" style="margin-bottom:0;">
+              <option value="mensal" ${student.paymentType==='mensal'?'selected':''}>Mensal</option>
+              <option value="semanal" ${student.paymentType==='semanal'?'selected':''}>Semanal</option>
+            </select>
+            <button class="btn btn-primary" style="margin-bottom:0;white-space:nowrap;" onclick="addPayment('${student.id}')">+ Adicionar</button>
+          </div>
         </div>
-        <button class="btn btn-primary" style="margin-bottom:0;" onclick="addPayment('${student.id}')">+ Adicionar pagamento</button>
       </div>
     </div>`}
 
