@@ -377,6 +377,7 @@ function checkTrainingReminders(){
     }catch(err){ /* silencioso */ }
   }
 }
+let currentUser = null;      // {role:'admin'} | {role:'aluno', studentId}
 let loginRole = null;        // 'admin' | 'aluno' | null
 let loginError = null;
 
