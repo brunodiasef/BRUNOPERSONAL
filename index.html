@@ -1243,6 +1243,7 @@ function renderAdminApp(){
     const previstosMesTodos = students.reduce((sum,st)=> sum + countPrevistosNoMes(st, thisYear, today.getMonth()+1), 0);
     const dadosMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(thisMonthKey) && t.type==='comigo').length, 0);
     const faltasMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(thisMonthKey) && t.type==='falta').length, 0);
+    const recebimentoPrevistoTodos = students.reduce((sum,st)=> sum + calcSuggestedPayment(st).total, 0);
 
     mainContent = `
       <div class="section-title">Resumo geral</div>
@@ -1250,6 +1251,7 @@ function renderAdminApp(){
         <div class="big-card">
           <div class="top"><h3>Financeiro</h3></div>
           <div class="stat-row"><span class="lbl">Recebido este mês (todos)</span><span class="val" style="color:var(--blue);">${money(totalMesTodos)}</span></div>
+          <div class="stat-row"><span class="lbl">Recebimento previsto (próximo período de cada aluno)</span><span class="val" style="color:var(--amber);">${money(recebimentoPrevistoTodos)}</span></div>
           <div class="stat-row"><span class="lbl">Acumulado no ano (todos)</span><span class="val" style="color:var(--green);">${money(totalAnoTodos)}</span></div>
           <div class="chart-wrap">
             <div class="chart-caption">Recebido por mês em ${thisYear}</div>
