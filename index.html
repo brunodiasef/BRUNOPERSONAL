@@ -1203,7 +1203,8 @@ function renderAdminApp(){
       });
       aulasHoje = horasComAluno.size;
     }
-    const treinosMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(thisMonthKey) && (t.type==='comigo'||t.type==='sozinho'||t.type==='reposicao')).length, 0);
+    const previstosMesTodos = students.reduce((sum,st)=> sum + countPrevistosNoMes(st, thisYear, today.getMonth()+1), 0);
+    const dadosMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(thisMonthKey) && t.type==='comigo').length, 0);
     const faltasMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(thisMonthKey) && t.type==='falta').length, 0);
 
     mainContent = `
@@ -1221,7 +1222,8 @@ function renderAdminApp(){
         <div class="big-card">
           <div class="top"><h3>Treino</h3></div>
           <div class="stat-row"><span class="lbl">Aulas hoje</span><span class="val" style="color:var(--blue);">${aulasHoje}</span></div>
-          <div class="stat-row"><span class="lbl">Treinos realizados no mês (todos)</span><span class="val" style="color:var(--green);">${treinosMesTodos}</span></div>
+          <div class="stat-row"><span class="lbl">Total de treinos previstos no mês</span><span class="val" style="color:var(--blue);">${previstosMesTodos}</span></div>
+          <div class="stat-row"><span class="lbl">Total de treinos dados no mês</span><span class="val" style="color:var(--green);">${dadosMesTodos}</span></div>
           <div class="stat-row"><span class="lbl">Faltas no mês (todos)</span><span class="val" style="color:var(--red);">${faltasMesTodos}</span></div>
         </div>
       </div>
