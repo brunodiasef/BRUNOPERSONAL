@@ -437,15 +437,13 @@ function totalYear(student, year){
 }
 
 function calcSuggestedPayment(student){
-  const billable = t => t.type==='comigo' || t.type==='reposicao';
+  const schedule = getSchedule(student);
   let count, periodLabel;
   if(student.paymentType==='mensal'){
-    const monthKey = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
-    count = student.trainings.filter(t=>t.date.startsWith(monthKey) && billable(t)).length;
+    count = countPrevistosNoMes(student, today.getFullYear(), today.getMonth()+1);
     periodLabel = 'no mês';
   } else {
-    const isoSet = getWeekDates(0).map(d=>toISO(d));
-    count = student.trainings.filter(t=>isoSet.includes(t.date) && billable(t)).length;
+    count = SCHEDULE_DAYS.filter(d=>schedule[d] && schedule[d].active).length;
     periodLabel = 'na semana';
   }
   const total = count * Number(student.paymentValue||0);
@@ -1183,8 +1181,8 @@ function renderPerfil(student){
         <div class="form-group"><label class="field-label">Valor por aula (R$)</label><input id="pf-value" type="number" class="input" style="margin-bottom:0;" value="${student.paymentValue}"></div>
       </div>
       <div style="background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
-        <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Pagamento sugerido (${student.paymentType==='mensal'?'mensal':'semanal'})</div>
-        <div style="font-size:13.5px;color:var(--text-soft);">${suggested.count} aula(s) dada(s) ${suggested.periodLabel} × ${money(student.paymentValue)} = <b style="color:var(--green);font-family:'Oswald';font-size:16px;">${money(suggested.total)}</b></div>
+        <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Pagamento sugerido (${student.paymentType==='mensal'?'mensal':'semanal'} · antecipado)</div>
+        <div style="font-size:13.5px;color:var(--text-soft);">${suggested.count} aula(s) prevista(s) ${suggested.periodLabel} (conforme agenda) × ${money(student.paymentValue)} = <b style="color:var(--green);font-family:'Oswald';font-size:16px;">${money(suggested.total)}</b></div>
       </div>
       <label class="field-label">Dias e horário de treino</label>
       <div style="margin-bottom:18px;">${renderScheduleFields('pf-sched', getSchedule(student))}</div>
