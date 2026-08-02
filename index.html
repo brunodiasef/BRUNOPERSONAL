@@ -436,6 +436,35 @@ function totalYear(student, year){
   return student.payments.filter(p=>parseISO(p.date).getFullYear()===Number(year)).reduce((s,p)=>s+Number(p.value),0);
 }
 
+function calcSuggestedPayment(student){
+  const billable = t => t.type==='comigo' || t.type==='reposicao';
+  let count, periodLabel;
+  if(student.paymentType==='mensal'){
+    const monthKey = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
+    count = student.trainings.filter(t=>t.date.startsWith(monthKey) && billable(t)).length;
+    periodLabel = 'no mês';
+  } else {
+    const isoSet = getWeekDates(0).map(d=>toISO(d));
+    count = student.trainings.filter(t=>isoSet.includes(t.date) && billable(t)).length;
+    periodLabel = 'na semana';
+  }
+  const total = count * Number(student.paymentValue||0);
+  return { count, total, periodLabel };
+}
+
+function hasPendingPayment(student){
+  if(student.paymentType==='mensal'){
+    if(today.getDate() < 7) return false;
+    const monthKey = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
+    return totalMonth(student, monthKey) <= 0;
+  } else {
+    if(today.getDay() !== 6) return false; // só aparece no sábado
+    const isoSet = getWeekDates(0).map(d=>toISO(d));
+    const paidThisWeek = student.payments.some(p=>isoSet.includes(p.date));
+    return !paidThisWeek;
+  }
+}
+
 function renderYearlyRevenueChart(students, year){
   const monthLabels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const totals = monthLabels.map((_,i)=> students.reduce((s,st)=>s+totalMonth(st, `${year}-${pad(i+1)}`),0));
@@ -862,7 +891,7 @@ function renderNewStudentModal(){
               <option value="semanal">Semanal</option>
             </select>
           </div>
-          <div class="form-group"><label class="field-label">Valor (R$)</label><input id="ns-value" type="number" class="input" style="margin-bottom:0;" placeholder="0,00"></div>
+          <div class="form-group"><label class="field-label">Valor por aula (R$)</label><input id="ns-value" type="number" class="input" style="margin-bottom:0;" placeholder="0,00"></div>
         </div>
         <label class="field-label">Dias e horário de treino</label>
         <div style="margin-bottom:18px;">${renderScheduleFields('ns-sched', defaultSchedule())}</div>
@@ -967,6 +996,7 @@ function renderTrainingModal(readonly){
 
 /* ============ RENDER: FINANCEIRO ============ */
 function renderFinanceiro(student, readonly){
+  const suggested = calcSuggestedPayment(student);
   const sorted = [...student.payments].sort((a,b)=>b.date.localeCompare(a.date));
   const rows = sorted.map(p=>`
     <tr>
@@ -991,7 +1021,8 @@ function renderFinanceiro(student, readonly){
       <div class="score-card accent-amber">
         <div class="lbl">Plano contratado</div>
         <div class="val" style="font-size:22px;text-transform:capitalize;">${student.paymentType}</div>
-        <div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${money(student.paymentValue)} por ${student.paymentType==='mensal'?'mês':'semana'}</div>
+        <div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${money(student.paymentValue)} por aula</div>
+        <div style="font-size:12px;color:var(--green);margin-top:4px;font-weight:600;">Sugerido ${student.paymentType==='mensal'?'no mês':'na semana'}: ${money(suggested.total)} (${suggested.count} aula${suggested.count===1?'':'s'})</div>
       </div>
     </div>
 
@@ -1000,7 +1031,7 @@ function renderFinanceiro(student, readonly){
       <h4>Registrar novo pagamento</h4>
       <div class="form-row">
         <div class="form-group"><label class="field-label">Data</label><input type="date" id="pay-date" class="input" value="${toISO(today)}"></div>
-        <div class="form-group"><label class="field-label">Valor (R$)</label><input type="number" id="pay-value" class="input" value="${student.paymentValue}"></div>
+        <div class="form-group"><label class="field-label">Valor (R$)</label><input type="number" id="pay-value" class="input" value="${suggested.total || student.paymentValue}"></div>
         <div class="form-group"><label class="field-label">Tipo</label>
           <div style="display:flex;gap:8px;">
             <select id="pay-type" class="input" style="margin-bottom:0;">
@@ -1131,6 +1162,7 @@ function renderTreino(student, readonly){
 
 /* ============ RENDER: PERFIL (admin) ============ */
 function renderPerfil(student){
+  const suggested = calcSuggestedPayment(student);
   return `
     <div class="panel">
       <h4>Dados do aluno</h4>
@@ -1148,7 +1180,11 @@ function renderPerfil(student){
             <option value="semanal" ${student.paymentType==='semanal'?'selected':''}>Semanal</option>
           </select>
         </div>
-        <div class="form-group"><label class="field-label">Valor (R$)</label><input id="pf-value" type="number" class="input" style="margin-bottom:0;" value="${student.paymentValue}"></div>
+        <div class="form-group"><label class="field-label">Valor por aula (R$)</label><input id="pf-value" type="number" class="input" style="margin-bottom:0;" value="${student.paymentValue}"></div>
+      </div>
+      <div style="background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+        <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Pagamento sugerido (${student.paymentType==='mensal'?'mensal':'semanal'})</div>
+        <div style="font-size:13.5px;color:var(--text-soft);">${suggested.count} aula(s) dada(s) ${suggested.periodLabel} × ${money(student.paymentValue)} = <b style="color:var(--green);font-family:'Oswald';font-size:16px;">${money(suggested.total)}</b></div>
       </div>
       <label class="field-label">Dias e horário de treino</label>
       <div style="margin-bottom:18px;">${renderScheduleFields('pf-sched', getSchedule(student))}</div>
@@ -1167,18 +1203,21 @@ function renderAdminApp(){
   const thisMonthKey = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
   const totalMesTodos = students.reduce((s,st)=>s+totalMonth(st, thisMonthKey),0);
   const totalAnoTodos = students.reduce((s,st)=>s+totalYear(st, today.getFullYear()),0);
-  const sidebarItems = students.map(s=>`
+  const sidebarItems = students.map(s=>{
+    const pending = hasPendingPayment(s);
+    return `
     <div class="student-item ${selectedStudentId===s.id?'active':''}" onclick="selectStudent('${s.id}')">
-      <div class="s-name">${s.name}</div>
-      <div class="s-plan">${s.paymentType} · ${money(s.paymentValue)}</div>
-    </div>`).join('') || `<div style="color:var(--ink-soft);font-size:13px;padding:10px 4px;">Nenhum aluno ainda.</div>`;
+      <div class="s-name">${s.name}${pending?' <span style="background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">PAGAMENTO PENDENTE</span>':''}</div>
+      <div class="s-plan">${s.paymentType} · ${money(s.paymentValue)}/aula</div>
+    </div>`;
+  }).join('') || `<div style="color:var(--ink-soft);font-size:13px;padding:10px 4px;">Nenhum aluno ainda.</div>`;
   const sidebarSummary = `
     <div style="margin-top:14px;padding-top:14px;border-top:1.5px solid var(--border);font-size:12.5px;color:var(--ink-soft);">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Total de alunos</span><b style="color:var(--ink);">${students.length}</b></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Recebido no mês</span><b style="color:var(--blue);">${money(totalMesTodos)}</b></div>
       <div style="display:flex;justify-content:space-between;"><span>Acumulado no ano</span><b style="color:var(--green);">${money(totalAnoTodos)}</b></div>
     </div>`;
-  const mobileSelectOptions = students.map(s=>`<option value="${s.id}" ${selectedStudentId===s.id?'selected':''}>${s.name}</option>`).join('');
+  const mobileSelectOptions = students.map(s=>`<option value="${s.id}" ${selectedStudentId===s.id?'selected':''}>${hasPendingPayment(s)?'⚠ ':''}${s.name}</option>`).join('');
   const mobileStudentSelect = `
     <select class="input mobile-student-select" onchange="if(this.value){selectStudent(this.value);}else{goHome();}">
       <option value="">— Alunos cadastrados —</option>
