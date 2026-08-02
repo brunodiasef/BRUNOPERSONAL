@@ -124,6 +124,17 @@
 
   .empty-state{text-align:center;padding:70px 20px;color:var(--text-soft);}
   .empty-state h2{color:var(--text);margin-bottom:10px;}
+  .section-title{font-size:11.5px;color:var(--text-faint);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px;}
+  .big-cards{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:28px;}
+  .big-card{flex:1;min-width:270px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow-sm);}
+  .big-card .top{display:flex;align-items:center;margin-bottom:16px;padding-bottom:14px;border-bottom:1.5px solid var(--border);}
+  .big-card h3{font-size:14px;color:var(--text);letter-spacing:.06em;}
+  .stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--border-soft);}
+  .stat-row:last-child{border-bottom:none;}
+  .stat-row .lbl{font-size:12.5px;color:var(--text-soft);}
+  .stat-row .val{font-family:'Oswald';font-size:19px;}
+  .chart-wrap{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);}
+  .chart-caption{font-size:10.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
 
   /* tabs */
   .tabs{display:flex;gap:4px;margin-bottom:22px;border-bottom:1.5px solid var(--border);overflow-x:auto;white-space:nowrap;scrollbar-width:none;}
@@ -423,6 +434,27 @@ function totalMonth(student, yearMonth){ // 'YYYY-MM'
 }
 function totalYear(student, year){
   return student.payments.filter(p=>parseISO(p.date).getFullYear()===Number(year)).reduce((s,p)=>s+Number(p.value),0);
+}
+
+function renderYearlyRevenueChart(students, year){
+  const monthLabels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const totals = monthLabels.map((_,i)=> students.reduce((s,st)=>s+totalMonth(st, `${year}-${pad(i+1)}`),0));
+  const max = Math.max(...totals, 1);
+  const w=600, h=170, padTop=14, padBottom=26, padSide=4;
+  const chartH = h-padTop-padBottom;
+  const gap=6;
+  const barW = (w-padSide*2)/12-gap;
+  const currentIdx = today.getMonth();
+  let bars='';
+  totals.forEach((v,i)=>{
+    const barH = max>0 ? Math.max((v/max)*chartH,2) : 2;
+    const x = padSide+i*(barW+gap);
+    const y = padTop+(chartH-barH);
+    const isCurrent = i===currentIdx;
+    bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="3" fill="${isCurrent?'#4C6BFF':'#262A38'}"></rect>`;
+    bars += `<text x="${(x+barW/2).toFixed(1)}" y="${h-8}" font-size="9" fill="#6A6D7C" text-anchor="middle" font-family="Inter,sans-serif">${monthLabels[i]}</text>`;
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:140px;display:block;">${bars}</svg>`;
 }
 
 /* ============ AÇÕES: LOGIN ============ */
@@ -1149,7 +1181,7 @@ function renderAdminApp(){
   const mobileSelectOptions = students.map(s=>`<option value="${s.id}" ${selectedStudentId===s.id?'selected':''}>${s.name}</option>`).join('');
   const mobileStudentSelect = `
     <select class="input mobile-student-select" onchange="if(this.value){selectStudent(this.value);}else{goHome();}">
-      <option value="">— Visão geral —</option>
+      <option value="">— Alunos cadastrados —</option>
       ${mobileSelectOptions}
     </select>`;
 
@@ -1159,13 +1191,43 @@ function renderAdminApp(){
   if(showGeneralSchedule){
     mainContent = renderHorarioGeral(false);
   } else if(!student){
-    const totalMes = totalMesTodos;
-    const totalAno = totalAnoTodos;
+    const thisYear = today.getFullYear();
+    const todayIdx = today.getDay()===0 ? null : today.getDay()-1; // 0=Seg..5=Sáb, null se domingo
+    let aulasHoje = 0;
+    if(todayIdx!==null){
+      const dayKey = SCHEDULE_DAYS[todayIdx];
+      const horasComAluno = new Set();
+      students.forEach(s=>{
+        const sc = getSchedule(s)[dayKey];
+        if(sc && sc.active) horasComAluno.add((sc.time||'18:00').split(':')[0]);
+      });
+      aulasHoje = horasComAluno.size;
+    }
+    const treinosMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(thisMonthKey) && (t.type==='comigo'||t.type==='sozinho'||t.type==='reposicao')).length, 0);
+    const faltasMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(thisMonthKey) && t.type==='falta').length, 0);
+
     mainContent = `
+      <div class="section-title">Resumo geral</div>
+      <div class="big-cards">
+        <div class="big-card">
+          <div class="top"><h3>Financeiro</h3></div>
+          <div class="stat-row"><span class="lbl">Recebido este mês (todos)</span><span class="val" style="color:var(--blue);">${money(totalMesTodos)}</span></div>
+          <div class="stat-row"><span class="lbl">Acumulado no ano (todos)</span><span class="val" style="color:var(--green);">${money(totalAnoTodos)}</span></div>
+          <div class="chart-wrap">
+            <div class="chart-caption">Recebido por mês em ${thisYear}</div>
+            ${renderYearlyRevenueChart(students, thisYear)}
+          </div>
+        </div>
+        <div class="big-card">
+          <div class="top"><h3>Treino</h3></div>
+          <div class="stat-row"><span class="lbl">Aulas hoje</span><span class="val" style="color:var(--blue);">${aulasHoje}</span></div>
+          <div class="stat-row"><span class="lbl">Treinos realizados no mês (todos)</span><span class="val" style="color:var(--green);">${treinosMesTodos}</span></div>
+          <div class="stat-row"><span class="lbl">Faltas no mês (todos)</span><span class="val" style="color:var(--red);">${faltasMesTodos}</span></div>
+        </div>
+      </div>
+      <div class="section-title">Alunos cadastrados</div>
       <div class="cards-row">
-        <div class="score-card accent-blue"><div class="lbl">Alunos ativos</div><div class="val">${students.length}</div></div>
-        <div class="score-card accent-green"><div class="lbl">Recebido este mês (todos)</div><div class="val">${money(totalMes)}</div></div>
-        <div class="score-card accent-amber"><div class="lbl">Acumulado neste ano (todos)</div><div class="val">${money(totalAno)}</div></div>
+        <div class="score-card accent-blue"><div class="lbl">Total de alunos</div><div class="val">${students.length}</div></div>
       </div>
       <div class="empty-state">
         <h2>Selecione um aluno</h2>
