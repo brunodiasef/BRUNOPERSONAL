@@ -416,6 +416,7 @@ function money(v){ return 'R$ ' + Number(v||0).toLocaleString('pt-BR',{minimumFr
 let finMonth = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
 let finYear = String(today.getFullYear());
 let treinoMonth = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
+let homeMonth = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
 
 function getMonday(d){ const x=new Date(d); const day=x.getDay(); const diff = day===0? -6 : 1-day; x.setDate(x.getDate()+diff); x.setHours(0,0,0,0); return x; }
 function getWeekDates(offset){
@@ -1228,7 +1229,10 @@ function renderAdminApp(){
   if(showGeneralSchedule){
     mainContent = renderHorarioGeral(false);
   } else if(!student){
-    const thisYear = today.getFullYear();
+    const [selYear, selMonthNum] = homeMonth.split('-').map(Number);
+    const selMonthKey = homeMonth;
+    const totalMesSel = students.reduce((s,st)=>s+totalMonth(st, selMonthKey),0);
+    const totalAnoSel = students.reduce((s,st)=>s+totalYear(st, selYear),0);
     const todayIdx = today.getDay()===0 ? null : today.getDay()-1; // 0=Seg..5=Sáb, null se domingo
     let aulasHoje = 0;
     if(todayIdx!==null){
@@ -1240,22 +1244,25 @@ function renderAdminApp(){
       });
       aulasHoje = horasComAluno.size;
     }
-    const previstosMesTodos = students.reduce((sum,st)=> sum + countPrevistosNoMes(st, thisYear, today.getMonth()+1), 0);
-    const dadosMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(thisMonthKey) && t.type==='comigo').length, 0);
-    const faltasMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(thisMonthKey) && t.type==='falta').length, 0);
-    const recebimentoPrevistoTodos = students.reduce((sum,st)=> sum + calcSuggestedPayment(st).total, 0);
+    const previstosMesTodos = students.reduce((sum,st)=> sum + countPrevistosNoMes(st, selYear, selMonthNum), 0);
+    const dadosMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(selMonthKey) && t.type==='comigo').length, 0);
+    const faltasMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(selMonthKey) && t.type==='falta').length, 0);
+    const recebimentoPrevistoTodos = students.reduce((sum,st)=> sum + (countPrevistosNoMes(st, selYear, selMonthNum) * Number(st.paymentValue||0)), 0);
 
     mainContent = `
-      <div class="section-title">Resumo geral</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <div class="section-title" style="margin-bottom:0;">Resumo geral</div>
+        <input type="month" class="input" style="margin-bottom:0;max-width:180px;font-size:12.5px;padding:8px 10px;" value="${homeMonth}" onchange="homeMonth=this.value; render();">
+      </div>
       <div class="big-cards">
         <div class="big-card">
           <div class="top"><h3>Financeiro</h3></div>
-          <div class="stat-row"><span class="lbl">Recebido este mês (todos)</span><span class="val" style="color:var(--blue);">${money(totalMesTodos)}</span></div>
-          <div class="stat-row"><span class="lbl">Recebimento previsto (próximo período de cada aluno)</span><span class="val" style="color:var(--amber);">${money(recebimentoPrevistoTodos)}</span></div>
-          <div class="stat-row"><span class="lbl">Acumulado no ano (todos)</span><span class="val" style="color:var(--green);">${money(totalAnoTodos)}</span></div>
+          <div class="stat-row"><span class="lbl">Recebido no mês selecionado (todos)</span><span class="val" style="color:var(--blue);">${money(totalMesSel)}</span></div>
+          <div class="stat-row"><span class="lbl">Recebimento previsto no mês (todos)</span><span class="val" style="color:var(--amber);">${money(recebimentoPrevistoTodos)}</span></div>
+          <div class="stat-row"><span class="lbl">Acumulado em ${selYear} (todos)</span><span class="val" style="color:var(--green);">${money(totalAnoSel)}</span></div>
           <div class="chart-wrap">
-            <div class="chart-caption">Recebido por mês em ${thisYear}</div>
-            ${renderYearlyRevenueChart(students, thisYear)}
+            <div class="chart-caption">Recebido por mês em ${selYear}</div>
+            ${renderYearlyRevenueChart(students, selYear)}
           </div>
         </div>
         <div class="big-card">
