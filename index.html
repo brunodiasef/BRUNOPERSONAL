@@ -631,6 +631,14 @@ function deletePayment(studentId, paymentId){
 /* ============ AÇÕES: TREINO ============ */
 function getSchedule(student){ return student.schedule || defaultSchedule(); }
 function daysInMonth(year, month){ return new Date(year, month, 0).getDate(); }
+function countWeekdayInMonth(year, month, jsWeekday){ // jsWeekday: 0=Dom..6=Sáb
+  const total = daysInMonth(year, month);
+  let count = 0;
+  for(let d=1; d<=total; d++){
+    if(new Date(year, month-1, d).getDay()===jsWeekday) count++;
+  }
+  return count;
+}
 function countPrevistosNoMes(student, year, month){
   const schedule = getSchedule(student);
   const total = daysInMonth(year, month);
@@ -999,6 +1007,10 @@ function renderTrainingModal(readonly){
 /* ============ RENDER: FINANCEIRO ============ */
 function renderFinanceiro(student, readonly){
   const suggested = calcSuggestedPayment(student);
+  const schedule = getSchedule(student);
+  const weeklyRateForMonth = SCHEDULE_DAYS.filter(d=>schedule[d] && schedule[d].active).length * Number(student.paymentValue||0);
+  const fridaysThisMonth = countWeekdayInMonth(today.getFullYear(), today.getMonth()+1, 5);
+  const valorPrevistoMensal = fridaysThisMonth * weeklyRateForMonth;
   const sorted = [...student.payments].sort((a,b)=>b.date.localeCompare(a.date));
   const rows = sorted.map(p=>`
     <tr>
@@ -1025,6 +1037,7 @@ function renderFinanceiro(student, readonly){
         <div class="val" style="font-size:22px;text-transform:capitalize;">${student.paymentType}</div>
         <div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${money(student.paymentValue)} por aula</div>
         <div style="font-size:12px;color:var(--green);margin-top:4px;font-weight:600;">Sugerido ${student.paymentType==='mensal'?'no mês':'na semana'}: ${money(suggested.total)} (${suggested.count} aula${suggested.count===1?'':'s'})</div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;font-weight:600;">Previsto mensal: ${money(valorPrevistoMensal)} (${fridaysThisMonth} sexta${fridaysThisMonth===1?'':'s'}-feira${fridaysThisMonth===1?'':'s'})</div>
       </div>
     </div>
 
@@ -1166,6 +1179,10 @@ function renderTreino(student, readonly){
 /* ============ RENDER: PERFIL (admin) ============ */
 function renderPerfil(student){
   const suggested = calcSuggestedPayment(student);
+  const schedule = getSchedule(student);
+  const weeklyRateForMonth = SCHEDULE_DAYS.filter(d=>schedule[d] && schedule[d].active).length * Number(student.paymentValue||0);
+  const fridaysThisMonth = countWeekdayInMonth(today.getFullYear(), today.getMonth()+1, 5);
+  const valorPrevistoMensal = fridaysThisMonth * weeklyRateForMonth;
   return `
     <div class="panel">
       <h4>Dados do aluno</h4>
@@ -1188,6 +1205,7 @@ function renderPerfil(student){
       <div style="background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
         <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Pagamento sugerido (${student.paymentType==='mensal'?'mensal':'semanal'} · antecipado)</div>
         <div style="font-size:13.5px;color:var(--text-soft);">${suggested.count} aula(s) prevista(s) ${suggested.periodLabel} (conforme agenda) × ${money(student.paymentValue)} = <b style="color:var(--green);font-family:'Oswald';font-size:16px;">${money(suggested.total)}</b></div>
+        <div style="font-size:13.5px;color:var(--text-soft);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">Valor previsto mensal (${fridaysThisMonth} sexta${fridaysThisMonth===1?'':'s'}-feira${fridaysThisMonth===1?'':'s'} × ${money(weeklyRateForMonth)}) = <b style="color:var(--amber);font-family:'Oswald';font-size:16px;">${money(valorPrevistoMensal)}</b></div>
       </div>
       <label class="field-label">Dias e horário de treino</label>
       <div style="margin-bottom:18px;">${renderScheduleFields('pf-sched', getSchedule(student))}</div>
