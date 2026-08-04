@@ -1144,8 +1144,9 @@ function renderTreino(student, readonly){
     </div>
     <div class="panel">
       <h4>Histórico do mês</h4>
-      <div class="form-row" style="margin-bottom:16px;">
-        <div class="form-group"><label class="field-label">Mês</label><input type="month" class="input" style="margin-bottom:0;" value="${treinoMonth}" onchange="treinoMonth=this.value; render();"></div>
+      <div style="margin-bottom:16px;">
+        <label class="field-label">Mês</label>
+        <input type="month" class="input" style="margin-bottom:0;max-width:200px;" value="${treinoMonth}" onchange="treinoMonth=this.value; render();">
       </div>
       <div class="cards-row" style="margin-bottom:20px;">
         <div class="score-card accent-blue"><div class="lbl">Treinos previstos no mês</div><div class="val">${previstosMes}</div></div>
