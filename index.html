@@ -298,6 +298,8 @@ function normalizeData(data){
     s.trainings = s.trainings.map(t=>({...t, muscles: Array.isArray(t.muscles) ? t.muscles : []}));
     if(!s.schedule) s.schedule = defaultSchedule();
     SCHEDULE_DAYS.forEach(d=>{ if(!s.schedule[d]) s.schedule[d] = {active:false, time:'18:00'}; });
+    if(typeof s.secQuestion !== 'string') s.secQuestion = '';
+    if(typeof s.secAnswer !== 'string') s.secAnswer = '';
     return s;
   });
   return data;
@@ -393,6 +395,10 @@ function checkTrainingReminders(){
 let currentUser = null;      // {role:'admin'} | {role:'aluno', studentId}
 let loginRole = null;        // 'admin' | 'aluno' | null
 let loginError = null;
+let recoverStep = 1;
+let recoverUsername = '';
+let recoverStudentId = null;
+let recoverError = null;
 
 let selectedStudentId = null;
 let activeTab = 'financeiro';
@@ -513,6 +519,45 @@ function doAlunoLogin(){
 }
 function logout(){ currentUser=null; loginRole=null; selectedStudentId=null; loginError=null; render(); }
 
+function openRecoverFlow(){
+  loginRole='recover'; recoverStep=1; recoverUsername=''; recoverStudentId=null; recoverError=null;
+  render();
+}
+function submitRecoverUsername(){
+  const user = document.getElementById('recover-user').value.trim();
+  const student = DATA.students.find(s=>s.username===user);
+  if(!student){ recoverError='Usuário não encontrado.'; render(); return; }
+  if(!student.secQuestion || !student.secQuestion.trim()){
+    recoverError='Este aluno ainda não tem uma pergunta de segurança cadastrada. Peça para o seu personal trainer redefinir sua senha.';
+    render(); return;
+  }
+  recoverStudentId = student.id;
+  recoverStep = 2;
+  recoverError = null;
+  render();
+}
+function submitRecoverAnswer(){
+  const answer = document.getElementById('recover-answer').value.trim().toLowerCase();
+  const student = findStudent(recoverStudentId);
+  if(!student){ recoverError='Algo deu errado, tente novamente.'; recoverStep=1; render(); return; }
+  const correct = (student.secAnswer||'').trim().toLowerCase();
+  if(!answer || answer !== correct){ recoverError='Resposta incorreta. Tente novamente.'; render(); return; }
+  recoverStep = 3;
+  recoverError = null;
+  render();
+}
+function submitNewPassword(){
+  const p1 = document.getElementById('recover-newpass').value;
+  if(!p1 || p1.length<4){ alert('A senha deve ter ao menos 4 caracteres.'); return; }
+  const student = findStudent(recoverStudentId);
+  if(!student) return;
+  student.password = p1;
+  saveData();
+  alert('Senha redefinida com sucesso! Você já pode entrar com a nova senha.');
+  loginRole = null; recoverStep = 1; recoverStudentId = null; recoverError = null;
+  render();
+}
+
 function openChangePass(){ showChangePassModal=true; render(); }
 function closeChangePass(){ showChangePassModal=false; render(); }
 function saveAdminPass(){
@@ -570,6 +615,8 @@ function addStudent(){
   const name=document.getElementById('ns-name').value.trim();
   const username=document.getElementById('ns-user').value.trim();
   const password=document.getElementById('ns-pass').value;
+  const secQuestion=document.getElementById('ns-secquestion').value.trim();
+  const secAnswer=document.getElementById('ns-secanswer').value.trim();
   const paymentType=document.getElementById('ns-type').value;
   const paymentValue=Number(document.getElementById('ns-value').value)||0;
   if(!name||!username||!password){ alert('Preencha nome, usuário e senha.'); return; }
@@ -577,7 +624,7 @@ function addStudent(){
   const schedule = readScheduleFromInputs('ns-sched');
   const conflicts = scheduleConflicts(schedule, null);
   if(conflicts.length){ alert('Não foi possível salvar a agenda — limite de 3 alunos por horário atingido:\n\n'+conflicts.join('\n')); return; }
-  const student = {id:uid(), name, username, password, paymentType, paymentValue, payments:[], trainings:[], schedule};
+  const student = {id:uid(), name, username, password, secQuestion, secAnswer, paymentType, paymentValue, payments:[], trainings:[], schedule};
   DATA.students.push(student);
   saveData();
   showNewStudentModal=false;
@@ -599,6 +646,8 @@ function saveProfile(id){
   if(DATA.students.some(o=>o.username===newUser && o.id!==id)){ alert('Esse usuário já está em uso por outro aluno.'); return; }
   s.username=newUser;
   s.password=document.getElementById('pf-pass').value;
+  s.secQuestion=document.getElementById('pf-secquestion').value.trim();
+  s.secAnswer=document.getElementById('pf-secanswer').value.trim();
   s.paymentType=document.getElementById('pf-type').value;
   s.paymentValue=Number(document.getElementById('pf-value').value)||0;
   const newSchedule = readScheduleFromInputs('pf-sched');
@@ -771,6 +820,40 @@ function renderLogin(){
         <button class="btn btn-primary" onclick="doAdminLogin()">Entrar</button>
         <button class="btn btn-ghost" onclick="backToRoleSelect()">← Voltar</button>
       </div>`;
+  } else if(loginRole==='recover'){
+    const student = recoverStudentId ? findStudent(recoverStudentId) : null;
+    if(recoverStep===1){
+      roleForm = `
+        <div class="login-card">
+          <h2 style="font-size:22px;margin-bottom:6px;">Esqueci minha senha</h2>
+          <p style="font-size:13px;color:var(--ink-soft);margin-bottom:20px;">Digite seu usuário para ver sua pergunta de segurança.</p>
+          ${recoverError ? `<div class="login-error">${recoverError}</div>` : ''}
+          <label class="field-label">Usuário</label>
+          <input type="text" id="recover-user" class="input" placeholder="seu usuário" onkeydown="if(event.key==='Enter')submitRecoverUsername()">
+          <button class="btn btn-primary" onclick="submitRecoverUsername()">Continuar</button>
+          <button class="btn btn-ghost" onclick="chooseRole('aluno')">← Voltar para o login</button>
+        </div>`;
+    } else if(recoverStep===2){
+      roleForm = `
+        <div class="login-card">
+          <h2 style="font-size:22px;margin-bottom:6px;">Pergunta de segurança</h2>
+          <p style="font-size:13px;color:var(--ink-soft);margin-bottom:20px;">Responda corretamente para redefinir sua senha.</p>
+          ${recoverError ? `<div class="login-error">${recoverError}</div>` : ''}
+          <label class="field-label">${student ? student.secQuestion : ''}</label>
+          <input type="text" id="recover-answer" class="input" placeholder="sua resposta" onkeydown="if(event.key==='Enter')submitRecoverAnswer()">
+          <button class="btn btn-primary" onclick="submitRecoverAnswer()">Confirmar resposta</button>
+          <button class="btn btn-ghost" onclick="chooseRole('aluno')">← Voltar para o login</button>
+        </div>`;
+    } else {
+      roleForm = `
+        <div class="login-card">
+          <h2 style="font-size:22px;margin-bottom:6px;">Nova senha</h2>
+          <p style="font-size:13px;color:var(--ink-soft);margin-bottom:20px;">Resposta certa! Defina sua nova senha abaixo.</p>
+          <label class="field-label">Nova senha</label>
+          <input type="password" id="recover-newpass" class="input" placeholder="mínimo 4 caracteres" onkeydown="if(event.key==='Enter')submitNewPassword()">
+          <button class="btn btn-primary" onclick="submitNewPassword()">Salvar nova senha</button>
+        </div>`;
+    }
   } else {
     roleForm = `
       <div class="login-card">
@@ -782,6 +865,7 @@ function renderLogin(){
         <label class="field-label">Senha</label>
         <input type="password" id="login-pass2" class="input" placeholder="sua senha" onkeydown="if(event.key==='Enter')doAlunoLogin()">
         <button class="btn btn-primary" onclick="doAlunoLogin()">Entrar</button>
+        <button class="btn btn-ghost" onclick="openRecoverFlow()">Esqueci minha senha</button>
         <button class="btn btn-ghost" onclick="backToRoleSelect()">← Voltar</button>
       </div>`;
   }
@@ -894,6 +978,8 @@ function renderNewStudentModal(){
         <div class="field-inline"><label class="field-label">Nome completo</label><input id="ns-name" class="input" style="margin-bottom:0;" placeholder="Ex: Ana Souza"></div>
         <div class="field-inline"><label class="field-label">Usuário de acesso</label><input id="ns-user" class="input" style="margin-bottom:0;" placeholder="Ex: ana.souza"></div>
         <div class="field-inline"><label class="field-label">Senha do aluno</label><input id="ns-pass" class="input" style="margin-bottom:0;" placeholder="Defina uma senha"></div>
+        <div class="field-inline"><label class="field-label">Pergunta de segurança (opcional)</label><input id="ns-secquestion" class="input" style="margin-bottom:0;" placeholder="Ex: Nome do seu primeiro animal de estimação?"></div>
+        <div class="field-inline"><label class="field-label">Resposta secreta</label><input id="ns-secanswer" class="input" style="margin-bottom:0;" placeholder="Resposta correta"></div>
         <div class="form-row" style="margin-bottom:16px;">
           <div class="form-group"><label class="field-label">Plano</label>
             <select id="ns-type" class="input" style="margin-bottom:0;">
@@ -1192,6 +1278,10 @@ function renderPerfil(student){
       <div class="form-row" style="margin-bottom:16px;">
         <div class="form-group"><label class="field-label">Usuário de acesso</label><input id="pf-user" class="input" style="margin-bottom:0;" value="${student.username}"></div>
         <div class="form-group"><label class="field-label">Senha do aluno</label><input id="pf-pass" class="input" style="margin-bottom:0;" value="${student.password}"></div>
+      </div>
+      <div class="form-row" style="margin-bottom:16px;">
+        <div class="form-group"><label class="field-label">Pergunta de segurança (recuperar senha)</label><input id="pf-secquestion" class="input" style="margin-bottom:0;" value="${student.secQuestion||''}" placeholder="Ex: Nome do seu primeiro animal de estimação?"></div>
+        <div class="form-group"><label class="field-label">Resposta secreta</label><input id="pf-secanswer" class="input" style="margin-bottom:0;" value="${student.secAnswer||''}" placeholder="Resposta correta"></div>
       </div>
       <div class="form-row" style="margin-bottom:20px;">
         <div class="form-group"><label class="field-label">Plano</label>
