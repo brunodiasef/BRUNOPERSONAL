@@ -291,6 +291,7 @@ function dbConfigured(){
 function normalizeData(data){
   if(!data || typeof data !== 'object') data = {};
   if(!data.adminPassword) data.adminPassword = 'admin123';
+  if(!Array.isArray(data.reservas)) data.reservas = data.reservas ? Object.values(data.reservas) : [];
   if(!Array.isArray(data.students)) data.students = data.students ? Object.values(data.students) : [];
   data.students = data.students.map(s=>{
     if(!Array.isArray(s.payments)) s.payments = s.payments ? Object.values(s.payments) : [];
@@ -348,7 +349,7 @@ async function saveData(){
 async function pollForUpdates(){
   if(storageUnavailable || !dbConfigured()) return;
   // não atualiza durante edições ativas, para não perder o que está sendo digitado
-  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal) return;
+  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal || showNewReserveModal) return;
   try{
     const res = await fetchWithTimeout(`${FIREBASE_DB_URL}/${STORAGE_KEY}.json`, null, 10000);
     const json = await res.json();
@@ -413,6 +414,9 @@ let showNewStudentModal = false;
 let showChangePassModal = false;
 let showStudentChangePassModal = false;
 let showGeneralSchedule = false;
+let showReserveList = false;
+let showNewReserveModal = false;
+let editingReserveId = null;
 
 const today = new Date();
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -578,9 +582,44 @@ function saveStudentPass(){
 }
 
 /* ============ AÇÕES: ALUNOS ============ */
-function selectStudent(id){ selectedStudentId=id; showGeneralSchedule=false; activeTab='financeiro'; weekOffset=0; render(); }
-function goHome(){ selectedStudentId=null; showGeneralSchedule=false; render(); }
-function openGeneralSchedule(){ showGeneralSchedule=true; selectedStudentId=null; render(); }
+function selectStudent(id){ selectedStudentId=id; showGeneralSchedule=false; showReserveList=false; activeTab='financeiro'; weekOffset=0; render(); }
+function goHome(){ selectedStudentId=null; showGeneralSchedule=false; showReserveList=false; render(); }
+function openGeneralSchedule(){ showGeneralSchedule=true; showReserveList=false; selectedStudentId=null; render(); }
+function openReserveList(){ showReserveList=true; showGeneralSchedule=false; selectedStudentId=null; render(); }
+function openNewReserveModal(id){
+  editingReserveId = id || null;
+  showNewReserveModal = true;
+  render();
+}
+function closeNewReserveModal(){ showNewReserveModal=false; editingReserveId=null; render(); }
+function saveReserve(){
+  const name = document.getElementById('rv-name').value.trim();
+  if(!name){ alert('Preencha ao menos o nome.'); return; }
+  const birthDate = document.getElementById('rv-birth').value;
+  const whatsapp = document.getElementById('rv-whatsapp').value.trim();
+  const email = document.getElementById('rv-email').value.trim();
+  const availableTime = document.getElementById('rv-time').value;
+  const days = {};
+  SCHEDULE_DAYS.forEach((d,i)=>{ days[d] = document.getElementById(`rv-day-${i}`).checked; });
+  if(editingReserveId){
+    const r = DATA.reservas.find(x=>x.id===editingReserveId);
+    if(r){ Object.assign(r, {name, birthDate, whatsapp, email, availableTime, days}); }
+  } else {
+    DATA.reservas.push({id:uid(), name, birthDate, whatsapp, email, availableTime, days});
+  }
+  saveData();
+  showNewReserveModal = false;
+  editingReserveId = null;
+  render();
+}
+function deleteReserve(id){
+  const r = DATA.reservas.find(x=>x.id===id);
+  if(!r) return;
+  if(!confirm(`Excluir o cadastro reserva de "${r.name}"?`)) return;
+  DATA.reservas = DATA.reservas.filter(x=>x.id!==id);
+  saveData();
+  render();
+}
 function openNewStudentModal(){ showNewStudentModal=true; render(); }
 function closeNewStudentModal(){ showNewStudentModal=false; render(); }
 function readScheduleFromInputs(prefix){
@@ -968,6 +1007,70 @@ function renderHorarioGeral(readonly){
     </div>`;
 }
 
+function renderReserveList(){
+  const list = [...DATA.reservas].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR',{sensitivity:'base'}));
+  const rows = list.map(r=>{
+    const diasAtivos = SCHEDULE_DAYS.map((d,i)=> (r.days && r.days[d]) ? WEEK_SHORT[i] : null).filter(Boolean).join(', ') || '—';
+    return `<tr>
+      <td>${r.name}</td>
+      <td>${r.birthDate ? fmtBR(r.birthDate) : '—'}</td>
+      <td>${r.whatsapp || '—'}</td>
+      <td>${r.email || '—'}</td>
+      <td>${r.availableTime || '—'}</td>
+      <td>${diasAtivos}</td>
+      <td style="white-space:nowrap;">
+        <button class="del-link" style="color:var(--blue);margin-right:10px;" onclick="openNewReserveModal('${r.id}')">editar</button>
+        <button class="del-link" onclick="deleteReserve('${r.id}')">excluir</button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="color:var(--ink-soft);padding:20px 8px;">Nenhum cadastro reserva ainda.</td></tr>`;
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <h2 style="font-size:26px;margin-bottom:0;">Cadastro reserva</h2>
+      <button class="btn btn-primary" style="width:auto;padding:12px 20px;" onclick="openNewReserveModal()">+ Nova reserva</button>
+    </div>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Pessoas interessadas que ainda não são alunas — guarde os dados aqui até fechar o plano.</p>
+    <div class="panel">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Nome</th><th>Nascimento</th><th>WhatsApp</th><th>E-mail</th><th>Horário disponível</th><th>Dias</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function renderNewReserveModal(){
+  if(!showNewReserveModal) return '';
+  const editing = editingReserveId ? DATA.reservas.find(r=>r.id===editingReserveId) : null;
+  const daysHtml = WEEK_LABELS.map((label,i)=>{
+    const d = SCHEDULE_DAYS[i];
+    const checked = editing && editing.days && editing.days[d];
+    return `<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;padding:6px 0;border-bottom:1px solid var(--border-soft);">
+      <input type="checkbox" id="rv-day-${i}" ${checked?'checked':''}> ${label}
+    </label>`;
+  }).join('');
+  return `
+    <div class="overlay" onclick="if(event.target===this)closeNewReserveModal()">
+      <div class="modal">
+        <h3>${editing?'Editar cadastro reserva':'Nova reserva'}</h3>
+        <p class="modal-sub">Dados de contato e disponibilidade de quem ainda não fechou o plano.</p>
+        <div class="field-inline"><label class="field-label">Nome completo</label><input id="rv-name" class="input" style="margin-bottom:0;" placeholder="Ex: Ana Souza" value="${editing?editing.name:''}"></div>
+        <div class="field-inline"><label class="field-label">Data de nascimento</label><input id="rv-birth" type="date" class="input" style="margin-bottom:0;" value="${editing?(editing.birthDate||''):''}"></div>
+        <div class="field-inline"><label class="field-label">WhatsApp</label><input id="rv-whatsapp" class="input" style="margin-bottom:0;" placeholder="(27) 99999-9999" value="${editing?(editing.whatsapp||''):''}"></div>
+        <div class="field-inline"><label class="field-label">E-mail</label><input id="rv-email" type="email" class="input" style="margin-bottom:0;" placeholder="nome@email.com" value="${editing?(editing.email||''):''}"></div>
+        <div class="field-inline"><label class="field-label">Horário disponível</label><input id="rv-time" type="time" class="input" style="margin-bottom:0;" value="${editing?(editing.availableTime||''):''}"></div>
+        <label class="field-label">Dias da semana disponíveis</label>
+        <div style="margin-bottom:20px;">${daysHtml}</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeNewReserveModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveReserve()">${editing?'Salvar alterações':'Adicionar'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderNewStudentModal(){
   if(!showNewStudentModal) return '';
   return `
@@ -1340,6 +1443,8 @@ function renderAdminApp(){
 
   if(showGeneralSchedule){
     mainContent = renderHorarioGeral(false);
+  } else if(showReserveList){
+    mainContent = renderReserveList();
   } else if(!student){
     const [selYear, selMonthNum] = homeMonth.split('-').map(Number);
     const selMonthKey = homeMonth;
@@ -1417,6 +1522,7 @@ function renderAdminApp(){
         <button class="tb-btn" onclick="goHome()">Página inicial</button>
         <button class="tb-btn" style="background:${showGeneralSchedule?'var(--blue)':'rgba(255,255,255,0.08)'};" onclick="openGeneralSchedule()">Horário Geral</button>
         <button class="tb-btn" style="background:var(--blue);" onclick="openNewStudentModal()">+ Novo aluno</button>
+        <button class="tb-btn" style="background:${showReserveList?'var(--amber)':'rgba(255,255,255,0.08)'};" onclick="openReserveList()">Cadastro reserva</button>
         <button class="tb-btn" onclick="exportBackup()">Exportar backup</button>
         <button class="tb-btn" onclick="triggerImport()">Importar backup</button>
         <input type="file" id="import-file" accept="application/json" style="display:none;" onchange="importBackup(event)">
@@ -1434,6 +1540,7 @@ function renderAdminApp(){
       <div class="main">${mobileStudentSelect}${mainContent}</div>
     </div>
     ${renderNewStudentModal()}
+    ${renderNewReserveModal()}
     ${renderChangePassModal()}
     ${renderTrainingModal(false)}
   `;
