@@ -934,21 +934,32 @@ function renderScheduleFields(prefix, schedule){
   }).join('');
 }
 
+function getHorarioRows(students){
+  const rows = new Set(HORARIO_HOURS.map(h=>`${String(h).padStart(2,'0')}:00`));
+  students.forEach(s=>{
+    const schedule = getSchedule(s);
+    SCHEDULE_DAYS.forEach(d=>{
+      const sc = schedule[d];
+      if(sc && sc.active && sc.time) rows.add(sc.time);
+    });
+  });
+  return Array.from(rows).sort();
+}
+
 function renderHorario(student){
   const schedule = getSchedule(student);
   const headerCells = HORARIO_DAYS_IDX.map(i=>`<th>${WEEK_LABELS[i]}</th>`).join('');
-  const rows = HORARIO_HOURS.map(hour=>{
-    const hourLbl = `${String(hour).padStart(2,'0')}:00`;
+  const rowTimes = getHorarioRows([student]);
+  const rows = rowTimes.map(rowTime=>{
     const cells = HORARIO_DAYS_IDX.map(i=>{
       const sc = schedule[SCHEDULE_DAYS[i]];
       let content = '';
-      if(sc && sc.active){
-        const schHour = parseInt((sc.time||'18:00').split(':')[0],10);
-        if(schHour===hour) content = `<div class="horario-slot">${student.name.split(' ')[0]} · ${sc.time}</div>`;
+      if(sc && sc.active && sc.time===rowTime){
+        content = `<div class="horario-slot">${student.name.split(' ')[0]} · ${sc.time}</div>`;
       }
-      return `<td>${content}</td>`;
+      return `<td${content?'':' style="background:rgba(255,92,77,0.18);"'}>${content}</td>`;
     }).join('');
-    return `<tr><td style="font-weight:600;color:var(--ink-soft);">${hourLbl}</td>${cells}</tr>`;
+    return `<tr><td style="font-weight:600;color:var(--ink-soft);">${rowTime}</td>${cells}</tr>`;
   }).join('');
   return `
     <div class="panel">
@@ -964,19 +975,17 @@ function renderHorario(student){
 
 function renderHorarioGeral(readonly){
   const headerCells = HORARIO_DAYS_IDX.map(i=>`<th>${WEEK_LABELS[i]}</th>`).join('');
-  const matrix = HORARIO_HOURS.map(hour=>{
+  const rowTimes = getHorarioRows(DATA.students);
+  const matrix = rowTimes.map(rowTime=>{
     return HORARIO_DAYS_IDX.map(i=>{
       const dayKey = SCHEDULE_DAYS[i];
       return DATA.students.filter(s=>{
         const sc = getSchedule(s)[dayKey];
-        if(!sc || !sc.active) return false;
-        const h = parseInt((sc.time||'18:00').split(':')[0],10);
-        return h===hour;
+        return sc && sc.active && sc.time===rowTime;
       });
     });
   });
-  const rows = HORARIO_HOURS.map((hour,rowIdx)=>{
-    const hourLbl = `${String(hour).padStart(2,'0')}:00`;
+  const rows = rowTimes.map((rowTime,rowIdx)=>{
     const cells = HORARIO_DAYS_IDX.map((i,colIdx)=>{
       const matches = matrix[rowIdx][colIdx];
       let content = '';
@@ -985,9 +994,9 @@ function renderHorarioGeral(readonly){
         const slots = matches.map(s=>`<div class="horario-slot" style="background:${full?'var(--red)':'var(--blue)'};${readonly?'':'cursor:pointer;'}" ${readonly?'':`onclick="selectStudent('${s.id}')" title="Abrir aluno"`}>${s.name.split(' ')[0]}</div>`).join('');
         content = `<div style="display:flex;flex-direction:column;gap:3px;align-items:center;">${slots}<div style="font-size:9.5px;font-weight:700;color:${full?'var(--red)':'var(--ink-soft)'};">${matches.length}/3</div></div>`;
       }
-      return `<td${matches.length?'':' style="background:#0F1015;"'}>${content}</td>`;
+      return `<td${matches.length?'':' style="background:rgba(255,92,77,0.18);"'}>${content}</td>`;
     }).join('');
-    return `<tr><td style="font-weight:600;color:var(--ink-soft);">${hourLbl}</td>${cells}</tr>`;
+    return `<tr><td style="font-weight:600;color:var(--ink-soft);">${rowTime}</td>${cells}</tr>`;
   }).join('');
   const totalCells = HORARIO_DAYS_IDX.map((i,colIdx)=>{
     const totalAulas = matrix.filter(row=>row[colIdx].length>0).length;
@@ -996,7 +1005,7 @@ function renderHorarioGeral(readonly){
   const totalsRow = `<tr style="background:var(--surface-3);"><td style="font-weight:700;color:var(--ink-soft);">Total de aulas</td>${totalCells}</tr>`;
   return `
     <h2 style="font-size:26px;margin-bottom:4px;">Horário Geral</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Todos os alunos e horários cadastrados, de segunda a sexta (05:00–22:00). Cada horário aceita até 3 alunos ao mesmo tempo${readonly?'.':' — clique em um aluno para abrir o cadastro dele.'}</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Todos os alunos e horários cadastrados, de segunda a sexta (05:00–22:00, incluindo horários quebrados). Cada horário aceita até 3 alunos ao mesmo tempo${readonly?'.':' — clique em um aluno para abrir o cadastro dele.'}</p>
     <div class="panel">
       <div style="overflow-x:auto;">
         <table class="horario-table">
