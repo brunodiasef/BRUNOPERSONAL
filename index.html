@@ -994,7 +994,7 @@ function renderHorarioGeral(readonly){
         const slots = matches.map(s=>`<div class="horario-slot" style="background:${full?'var(--red)':'var(--blue)'};${readonly?'':'cursor:pointer;'}" ${readonly?'':`onclick="selectStudent('${s.id}')" title="Abrir aluno"`}>${s.name.split(' ')[0]}</div>`).join('');
         content = `<div style="display:flex;flex-direction:column;gap:3px;align-items:center;">${slots}<div style="font-size:9.5px;font-weight:700;color:${full?'var(--red)':'var(--ink-soft)'};">${matches.length}/3</div></div>`;
       }
-      return `<td${matches.length?'':' style="background:rgba(255,92,77,0.18);"'}>${content}</td>`;
+      return `<td${matches.length?'':' style="background:#3A3D4A;"'}>${content}</td>`;
     }).join('');
     return `<tr><td style="font-weight:600;color:var(--ink-soft);">${rowTime}</td>${cells}</tr>`;
   }).join('');
