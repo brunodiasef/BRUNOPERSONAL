@@ -304,6 +304,7 @@ function normalizeData(data){
     SCHEDULE_DAYS.forEach(d=>{ if(!s.schedule[d]) s.schedule[d] = {active:false, time:'18:00'}; });
     if(typeof s.secQuestion !== 'string') s.secQuestion = '';
     if(typeof s.whatsapp !== 'string') s.whatsapp = '';
+    if(typeof s.suspended !== 'boolean') s.suspended = false;
     if(typeof s.secAnswer !== 'string') s.secAnswer = '';
     return s;
   });
@@ -455,6 +456,9 @@ function totalYear(student, year){
 }
 
 function calcSuggestedPayment(student){
+  if(student.suspended || student.paymentType==='gratuito'){
+    return { count:0, total:0, periodLabel: student.paymentType==='semanal' ? 'na semana' : 'no mês' };
+  }
   const schedule = getSchedule(student);
   let count, periodLabel;
   if(student.paymentType==='mensal'){
@@ -476,19 +480,24 @@ function buildWhatsappNumber(raw){
 }
 
 function whatsappChargeLink(student){
+  if(student.suspended || student.paymentType==='gratuito') return null;
   const number = buildWhatsappNumber(student.whatsapp);
   if(!number) return null;
   const suggested = calcSuggestedPayment(student);
+  if(suggested.total<=0) return null;
   const firstName = student.name.split(' ')[0];
   const msg = `Olá ${firstName}! Passando para lembrar do pagamento do seu plano ${student.paymentType} na Bruno Personal Trainer. Valor: ${money(suggested.total)}. Qualquer dúvida, é só chamar por aqui. Obrigado! 💪`;
   return `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
 }
 
 function hasPendingPayment(student){
+  if(student.suspended) return false;
+  if(student.paymentType==='gratuito') return false;
   if(student.paymentType==='mensal'){
     if(today.getDate() < 7) return false;
     const monthKey = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
-    return totalMonth(student, monthKey) <= 0;
+    const hasRecord = student.payments.some(p=>p.date.startsWith(monthKey));
+    return !hasRecord;
   } else {
     if(today.getDay() !== 6) return false; // só aparece no sábado
     const isoSet = getWeekDates(0).map(d=>toISO(d));
@@ -736,6 +745,7 @@ function saveProfile(id){
   s.secQuestion=document.getElementById('pf-secquestion').value.trim();
   s.secAnswer=document.getElementById('pf-secanswer').value.trim();
   s.paymentType=document.getElementById('pf-type').value;
+  s.suspended=document.getElementById('pf-suspended').checked;
   s.paymentValue=Number(document.getElementById('pf-value').value)||0;
   const newSchedule = readScheduleFromInputs('pf-sched');
   const conflicts = scheduleConflicts(newSchedule, id);
@@ -754,6 +764,14 @@ function addPayment(id){
   if(!date||!value){ alert('Informe data e valor.'); return; }
   const s=findStudent(id);
   s.payments.push({id:uid(), date, value, type});
+  saveData();
+  render();
+}
+function abonarPagamento(id){
+  const s = findStudent(id);
+  if(!s) return;
+  if(!confirm(`Abonar o pagamento de "${s.name}" deste período? Isso marca como quitado sem registrar valor recebido.`)) return;
+  s.payments.push({id:uid(), date: toISO(today), value:0, type: s.paymentType, waived:true});
   saveData();
   render();
 }
@@ -1188,6 +1206,7 @@ function renderNewStudentModal(){
             <select id="ns-type" class="input" style="margin-bottom:0;">
               <option value="mensal">Mensal</option>
               <option value="semanal">Semanal</option>
+              <option value="gratuito">Gratuito</option>
             </select>
           </div>
           <div class="form-group"><label class="field-label">Valor por aula (R$)</label><input id="ns-value" type="number" class="input" style="margin-bottom:0;" placeholder="0,00"></div>
@@ -1297,17 +1316,28 @@ function renderTrainingModal(readonly){
 function renderFinanceiro(student, readonly){
   const suggested = calcSuggestedPayment(student);
   const schedule = getSchedule(student);
-  const weeklyRateForMonth = SCHEDULE_DAYS.filter(d=>schedule[d] && schedule[d].active).length * Number(student.paymentValue||0);
+  const isFreeOrSuspended = student.suspended || student.paymentType==='gratuito';
+  const weeklyRateForMonth = isFreeOrSuspended ? 0 : SCHEDULE_DAYS.filter(d=>schedule[d] && schedule[d].active).length * Number(student.paymentValue||0);
   const fridaysThisMonth = countWeekdayInMonth(today.getFullYear(), today.getMonth()+1, 5);
-  const valorPrevistoMensal = fridaysThisMonth * weeklyRateForMonth;
+  const valorPrevistoMensal = isFreeOrSuspended ? 0 : fridaysThisMonth * weeklyRateForMonth;
   const sorted = [...student.payments].sort((a,b)=>b.date.localeCompare(a.date));
   const rows = sorted.map(p=>`
     <tr>
       <td>${fmtBR(p.date)}</td>
-      <td>${money(p.value)}</td>
+      <td>${p.waived ? `<span style="color:var(--text-faint);font-style:italic;">Abonado</span>` : money(p.value)}</td>
       <td><span class="type-pill type-${p.type}">${p.type}</span></td>
       ${readonly?'':`<td><button class="del-link" onclick="deletePayment('${student.id}','${p.id}')">excluir</button></td>`}
     </tr>`).join('') || `<tr><td colspan="4" style="color:var(--ink-soft);padding:20px 8px;">Nenhum pagamento registrado ainda.</td></tr>`;
+
+  const planoInfoHtml = student.suspended
+    ? `<div style="margin-top:12px;padding:10px 12px;background:var(--surface-3);border-radius:8px;font-size:12px;color:var(--amber);font-weight:700;">Contrato suspenso — cobranças e avisos de pendência zerados.</div>`
+    : student.paymentType==='gratuito'
+    ? `<div style="margin-top:12px;padding:10px 12px;background:var(--surface-3);border-radius:8px;font-size:12px;color:var(--green);font-weight:700;">Plano gratuito — sem cobranças.</div>`
+    : `
+        <div style="font-size:12px;color:var(--green);margin-top:4px;font-weight:600;">Sugerido ${student.paymentType==='mensal'?'no mês':'na semana'}: ${money(suggested.total)} (${suggested.count} aula${suggested.count===1?'':'s'})</div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;font-weight:600;">Previsto mensal: ${money(valorPrevistoMensal)} (${fridaysThisMonth} sexta${fridaysThisMonth===1?'':'s'}-feira${fridaysThisMonth===1?'':'s'})</div>
+        ${readonly?'':(whatsappChargeLink(student) ? `<a href="${whatsappChargeLink(student)}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:12px;background:#25D366;color:#fff;padding:9px;border-radius:8px;font-weight:700;font-size:12.5px;text-decoration:none;">Cobrar via WhatsApp</a>` : `<div style="margin-top:12px;font-size:11.5px;color:var(--text-faint);">Cadastre o WhatsApp do aluno no Perfil para habilitar a cobrança.</div>`)}
+      `;
 
   return `
     <div class="cards-row">
@@ -1323,17 +1353,18 @@ function renderFinanceiro(student, readonly){
       </div>
       <div class="score-card accent-amber">
         <div class="lbl">Plano contratado</div>
-        <div class="val" style="font-size:22px;text-transform:capitalize;">${student.paymentType}</div>
+        <div class="val" style="font-size:22px;text-transform:capitalize;">${student.paymentType}${student.suspended?' (suspenso)':''}</div>
         <div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${money(student.paymentValue)} por aula</div>
-        <div style="font-size:12px;color:var(--green);margin-top:4px;font-weight:600;">Sugerido ${student.paymentType==='mensal'?'no mês':'na semana'}: ${money(suggested.total)} (${suggested.count} aula${suggested.count===1?'':'s'})</div>
-        <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;font-weight:600;">Previsto mensal: ${money(valorPrevistoMensal)} (${fridaysThisMonth} sexta${fridaysThisMonth===1?'':'s'}-feira${fridaysThisMonth===1?'':'s'})</div>
-        ${readonly?'':(whatsappChargeLink(student) ? `<a href="${whatsappChargeLink(student)}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:12px;background:#25D366;color:#fff;padding:9px;border-radius:8px;font-weight:700;font-size:12.5px;text-decoration:none;">Cobrar via WhatsApp</a>` : `<div style="margin-top:12px;font-size:11.5px;color:var(--text-faint);">Cadastre o WhatsApp do aluno no Perfil para habilitar a cobrança.</div>`)}
+        ${planoInfoHtml}
       </div>
     </div>
 
     ${readonly?'':`
     <div class="panel">
-      <h4>Registrar novo pagamento</h4>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <h4 style="margin-bottom:0;">Registrar novo pagamento</h4>
+        <button class="btn btn-secondary" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="abonarPagamento('${student.id}')">Abonar pagamento</button>
+      </div>
       <div class="form-row">
         <div class="form-group"><label class="field-label">Data</label><input type="date" id="pay-date" class="input" value="${toISO(today)}"></div>
         <div class="form-group"><label class="field-label">Valor (R$)</label><input type="number" id="pay-value" class="input" value="${suggested.total || student.paymentValue}"></div>
@@ -1493,10 +1524,15 @@ function renderPerfil(student){
           <select id="pf-type" class="input" style="margin-bottom:0;">
             <option value="mensal" ${student.paymentType==='mensal'?'selected':''}>Mensal</option>
             <option value="semanal" ${student.paymentType==='semanal'?'selected':''}>Semanal</option>
+            <option value="gratuito" ${student.paymentType==='gratuito'?'selected':''}>Gratuito</option>
           </select>
         </div>
         <div class="form-group"><label class="field-label">Valor por aula (R$)</label><input id="pf-value" type="number" class="input" style="margin-bottom:0;" value="${student.paymentValue}"></div>
       </div>
+      <label style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:20px;cursor:pointer;">
+        <input type="checkbox" id="pf-suspended" ${student.suspended?'checked':''}>
+        <span style="font-size:13.5px;font-weight:600;color:var(--text);">Suspender contrato (zera cobranças e avisos de pagamento pendente enquanto estiver marcado)</span>
+      </label>
       <div style="background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
         <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Pagamento sugerido (${student.paymentType==='mensal'?'mensal':'semanal'} · antecipado)</div>
         <div style="font-size:13.5px;color:var(--text-soft);">${suggested.count} aula(s) prevista(s) ${suggested.periodLabel} (conforme agenda) × ${money(student.paymentValue)} = <b style="color:var(--green);font-family:'Oswald';font-size:16px;">${money(suggested.total)}</b></div>
@@ -1524,7 +1560,7 @@ function renderAdminApp(){
     const chargeLink = pending ? whatsappChargeLink(s) : null;
     return `
     <div class="student-item ${selectedStudentId===s.id?'active':''}" onclick="selectStudent('${s.id}')">
-      <div class="s-name">${s.name}${pending?' <span style="background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">PAGAMENTO PENDENTE</span>':''}</div>
+      <div class="s-name">${s.name}${s.suspended?' <span style="background:var(--surface-3);color:var(--amber);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">SUSPENSO</span>':''}${pending?' <span style="background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">PAGAMENTO PENDENTE</span>':''}</div>
       <div class="s-plan">${s.paymentType} · ${money(s.paymentValue)}/aula</div>
       ${chargeLink ? `<a href="${chargeLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-block;margin-top:6px;background:#25D366;color:#fff;font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:6px;text-decoration:none;">Cobrar via WhatsApp</a>` : ''}
     </div>`;
@@ -1568,7 +1604,7 @@ function renderAdminApp(){
     const previstosMesTodos = students.reduce((sum,st)=> sum + countPrevistosNoMes(st, selYear, selMonthNum), 0);
     const dadosMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(selMonthKey) && t.type==='comigo').length, 0);
     const faltasMesTodos = students.reduce((sum,st)=> sum + st.trainings.filter(t=>t.date.startsWith(selMonthKey) && t.type==='falta').length, 0);
-    const recebimentoPrevistoTodos = students.reduce((sum,st)=> sum + (countPrevistosNoMes(st, selYear, selMonthNum) * Number(st.paymentValue||0)), 0);
+    const recebimentoPrevistoTodos = students.reduce((sum,st)=> sum + ((st.suspended || st.paymentType==='gratuito') ? 0 : (countPrevistosNoMes(st, selYear, selMonthNum) * Number(st.paymentValue||0))), 0);
 
     mainContent = `
       <div class="section-title">Resumo geral</div>
