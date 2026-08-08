@@ -893,7 +893,7 @@ function renderLogin(){
           <span class="role-icon" style="background:none;padding:0;"><img src="${LOGO_URL}" alt="logo" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:8px;padding:2px;"></span>
           <span>Sou Aluno<br><span style="font-weight:400;font-size:12.5px;color:var(--ink-soft);text-transform:none;">Ver meus dados</span></span>
         </button>
-        ${!appIsInstalled ? `<button class="btn btn-ghost" style="width:100%;text-align:center;margin-top:6px;text-decoration:none;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:11px;color:var(--text-soft);font-weight:600;font-size:13px;" onclick="installApp()">⊕ Instalar no computador</button>` : ''}
+        ${!appIsInstalled ? `<button class="btn btn-ghost" style="width:100%;text-align:center;margin-top:6px;text-decoration:none;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:11px;color:var(--text-soft);font-weight:600;font-size:13px;" onclick="installApp()">⊕ Instalar Aplicativo</button>` : ''}
         <div style="margin-top:22px;padding-top:20px;border-top:1px solid var(--border);text-align:center;">
           <p style="font-size:12px;color:var(--text-faint);margin-bottom:10px;">Ou acesse pelo celular escaneando:</p>
           <img src="${QR_APP_URL}" alt="QR code do app" style="width:130px;height:130px;border-radius:10px;background:#fff;padding:6px;">
@@ -1630,7 +1630,7 @@ function renderAdminApp(){
         <button class="tb-btn" onclick="exportBackup()">Exportar backup</button>
         <button class="tb-btn" onclick="triggerImport()">Importar backup</button>
         <input type="file" id="import-file" accept="application/json" style="display:none;" onchange="importBackup(event)">
-        ${!appIsInstalled ? `<button class="tb-btn" onclick="installApp()">⊕ Instalar app</button>` : ''}
+        ${!appIsInstalled ? `<button class="tb-btn" onclick="installApp()">⊕ Instalar Aplicativo</button>` : ''}
         <button class="tb-btn" onclick="openChangePass()">Alterar senha</button>
         <button class="tb-btn" onclick="logout()">Sair</button>
       </div>
@@ -1682,7 +1682,7 @@ function renderAlunoApp(){
         <div><div class="tb-title">${student.name}</div><div class="tb-sub">Área do aluno · Bruno Personal Trainer · 27 998860938</div></div>
       </div>
       <div class="tb-right">
-        ${!appIsInstalled ? `<button class="tb-btn" onclick="installApp()">⊕ Instalar app</button>` : ''}
+        ${!appIsInstalled ? `<button class="tb-btn" onclick="installApp()">⊕ Instalar Aplicativo</button>` : ''}
         <button class="tb-btn" onclick="openStudentChangePass()">Alterar minha senha</button>
         <button class="tb-btn" onclick="logout()">Sair</button>
       </div>
