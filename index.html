@@ -303,6 +303,7 @@ function normalizeData(data){
     if(!s.schedule) s.schedule = defaultSchedule();
     SCHEDULE_DAYS.forEach(d=>{ if(!s.schedule[d]) s.schedule[d] = {active:false, time:'18:00'}; });
     if(typeof s.secQuestion !== 'string') s.secQuestion = '';
+    if(typeof s.whatsapp !== 'string') s.whatsapp = '';
     if(typeof s.secAnswer !== 'string') s.secAnswer = '';
     return s;
   });
@@ -465,6 +466,22 @@ function calcSuggestedPayment(student){
   }
   const total = count * Number(student.paymentValue||0);
   return { count, total, periodLabel };
+}
+
+function buildWhatsappNumber(raw){
+  let digits = (raw||'').replace(/\D/g,'');
+  if(!digits) return null;
+  if(!digits.startsWith('55')) digits = '55' + digits;
+  return digits;
+}
+
+function whatsappChargeLink(student){
+  const number = buildWhatsappNumber(student.whatsapp);
+  if(!number) return null;
+  const suggested = calcSuggestedPayment(student);
+  const firstName = student.name.split(' ')[0];
+  const msg = `Olá ${firstName}! Passando para lembrar do pagamento do seu plano ${student.paymentType} na Bruno Personal Trainer. Valor: ${money(suggested.total)}. Qualquer dúvida, é só chamar por aqui. Obrigado! 💪`;
+  return `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
 }
 
 function hasPendingPayment(student){
@@ -681,6 +698,7 @@ function scheduleConflicts(schedule, excludeId){
 }
 function addStudent(){
   const name=document.getElementById('ns-name').value.trim();
+  const whatsapp=document.getElementById('ns-whatsapp').value.trim();
   const username=document.getElementById('ns-user').value.trim();
   const password=document.getElementById('ns-pass').value;
   const secQuestion=document.getElementById('ns-secquestion').value.trim();
@@ -692,7 +710,7 @@ function addStudent(){
   const schedule = readScheduleFromInputs('ns-sched');
   const conflicts = scheduleConflicts(schedule, null);
   if(conflicts.length){ alert('Não foi possível salvar a agenda — limite de 3 alunos por horário atingido:\n\n'+conflicts.join('\n')); return; }
-  const student = {id:uid(), name, username, password, secQuestion, secAnswer, paymentType, paymentValue, payments:[], trainings:[], schedule};
+  const student = {id:uid(), name, whatsapp, username, password, secQuestion, secAnswer, paymentType, paymentValue, payments:[], trainings:[], schedule};
   DATA.students.push(student);
   saveData();
   showNewStudentModal=false;
@@ -710,6 +728,7 @@ function deleteStudent(id){
 function saveProfile(id){
   const s=findStudent(id);
   s.name=document.getElementById('pf-name').value.trim();
+  s.whatsapp=document.getElementById('pf-whatsapp').value.trim();
   const newUser=document.getElementById('pf-user').value.trim();
   if(DATA.students.some(o=>o.username===newUser && o.id!==id)){ alert('Esse usuário já está em uso por outro aluno.'); return; }
   s.username=newUser;
@@ -1159,6 +1178,7 @@ function renderNewStudentModal(){
         <h3>Novo aluno</h3>
         <p class="modal-sub">Crie o acesso do aluno e defina o plano de pagamento.</p>
         <div class="field-inline"><label class="field-label">Nome completo</label><input id="ns-name" class="input" style="margin-bottom:0;" placeholder="Ex: Ana Souza"></div>
+        <div class="field-inline"><label class="field-label">WhatsApp (com DDD)</label><input id="ns-whatsapp" class="input" style="margin-bottom:0;" placeholder="Ex: 27 99999-9999"></div>
         <div class="field-inline"><label class="field-label">Usuário de acesso</label><input id="ns-user" class="input" style="margin-bottom:0;" placeholder="Ex: ana.souza"></div>
         <div class="field-inline"><label class="field-label">Senha do aluno</label><input id="ns-pass" class="input" style="margin-bottom:0;" placeholder="Defina uma senha"></div>
         <div class="field-inline"><label class="field-label">Pergunta de segurança (opcional)</label><input id="ns-secquestion" class="input" style="margin-bottom:0;" placeholder="Ex: Nome do seu primeiro animal de estimação?"></div>
@@ -1307,6 +1327,7 @@ function renderFinanceiro(student, readonly){
         <div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${money(student.paymentValue)} por aula</div>
         <div style="font-size:12px;color:var(--green);margin-top:4px;font-weight:600;">Sugerido ${student.paymentType==='mensal'?'no mês':'na semana'}: ${money(suggested.total)} (${suggested.count} aula${suggested.count===1?'':'s'})</div>
         <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;font-weight:600;">Previsto mensal: ${money(valorPrevistoMensal)} (${fridaysThisMonth} sexta${fridaysThisMonth===1?'':'s'}-feira${fridaysThisMonth===1?'':'s'})</div>
+        ${readonly?'':(whatsappChargeLink(student) ? `<a href="${whatsappChargeLink(student)}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:12px;background:#25D366;color:#fff;padding:9px;border-radius:8px;font-weight:700;font-size:12.5px;text-decoration:none;">Cobrar via WhatsApp</a>` : `<div style="margin-top:12px;font-size:11.5px;color:var(--text-faint);">Cadastre o WhatsApp do aluno no Perfil para habilitar a cobrança.</div>`)}
       </div>
     </div>
 
@@ -1457,6 +1478,7 @@ function renderPerfil(student){
       <h4>Dados do aluno</h4>
       <div class="form-row" style="margin-bottom:16px;">
         <div class="form-group" style="flex:1;min-width:200px;"><label class="field-label">Nome completo</label><input id="pf-name" class="input" style="margin-bottom:0;" value="${student.name}"></div>
+        <div class="form-group"><label class="field-label">WhatsApp (com DDD)</label><input id="pf-whatsapp" class="input" style="margin-bottom:0;" value="${student.whatsapp||''}" placeholder="Ex: 27 99999-9999"></div>
       </div>
       <div class="form-row" style="margin-bottom:16px;">
         <div class="form-group"><label class="field-label">Usuário de acesso</label><input id="pf-user" class="input" style="margin-bottom:0;" value="${student.username}"></div>
@@ -1499,10 +1521,12 @@ function renderAdminApp(){
   const totalAnoTodos = students.reduce((s,st)=>s+totalYear(st, today.getFullYear()),0);
   const sidebarItems = students.map(s=>{
     const pending = hasPendingPayment(s);
+    const chargeLink = pending ? whatsappChargeLink(s) : null;
     return `
     <div class="student-item ${selectedStudentId===s.id?'active':''}" onclick="selectStudent('${s.id}')">
       <div class="s-name">${s.name}${pending?' <span style="background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">PAGAMENTO PENDENTE</span>':''}</div>
       <div class="s-plan">${s.paymentType} · ${money(s.paymentValue)}/aula</div>
+      ${chargeLink ? `<a href="${chargeLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-block;margin-top:6px;background:#25D366;color:#fff;font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:6px;text-decoration:none;">Cobrar via WhatsApp</a>` : ''}
     </div>`;
   }).join('') || `<div style="color:var(--ink-soft);font-size:13px;padding:10px 4px;">Nenhum aluno ainda.</div>`;
   const sidebarSummary = `
