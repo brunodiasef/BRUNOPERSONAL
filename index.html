@@ -957,7 +957,7 @@ function renderHorario(student){
       if(sc && sc.active && sc.time===rowTime){
         content = `<div class="horario-slot">${student.name.split(' ')[0]} · ${sc.time}</div>`;
       }
-      return `<td${content?'':' style="background:rgba(255,92,77,0.18);"'}>${content}</td>`;
+      return `<td${content?'':' style="background:var(--surface-2);"'}>${content}</td>`;
     }).join('');
     return `<tr><td style="font-weight:600;color:var(--ink-soft);">${rowTime}</td>${cells}</tr>`;
   }).join('');
