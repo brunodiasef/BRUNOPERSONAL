@@ -292,6 +292,7 @@ function normalizeData(data){
   if(!data || typeof data !== 'object') data = {};
   if(!data.adminPassword) data.adminPassword = 'admin123';
   if(!Array.isArray(data.reservas)) data.reservas = data.reservas ? Object.values(data.reservas) : [];
+  if(!Array.isArray(data.availableMarks)) data.availableMarks = data.availableMarks ? Object.values(data.availableMarks) : [];
   if(!Array.isArray(data.students)) data.students = data.students ? Object.values(data.students) : [];
   data.students = data.students.map(s=>{
     if(!Array.isArray(s.payments)) s.payments = s.payments ? Object.values(s.payments) : [];
@@ -349,7 +350,7 @@ async function saveData(){
 async function pollForUpdates(){
   if(storageUnavailable || !dbConfigured()) return;
   // não atualiza durante edições ativas, para não perder o que está sendo digitado
-  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal || showNewReserveModal) return;
+  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal || showNewReserveModal || showMarkAvailableModal) return;
   try{
     const res = await fetchWithTimeout(`${FIREBASE_DB_URL}/${STORAGE_KEY}.json`, null, 10000);
     const json = await res.json();
@@ -417,6 +418,7 @@ let showGeneralSchedule = false;
 let showReserveList = false;
 let showNewReserveModal = false;
 let editingReserveId = null;
+let showMarkAvailableModal = false;
 
 const today = new Date();
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -617,6 +619,31 @@ function deleteReserve(id){
   if(!r) return;
   if(!confirm(`Excluir o cadastro reserva de "${r.name}"?`)) return;
   DATA.reservas = DATA.reservas.filter(x=>x.id!==id);
+  saveData();
+  render();
+}
+
+function openMarkAvailableModal(){ showMarkAvailableModal=true; render(); }
+function closeMarkAvailableModal(){ showMarkAvailableModal=false; render(); }
+function saveMarkAvailable(){
+  const dayIdx = Number(document.getElementById('av-day').value);
+  const time = document.getElementById('av-time').value;
+  if(!time){ alert('Escolha um horário.'); return; }
+  const dayKey = SCHEDULE_DAYS[dayIdx];
+  const occupied = DATA.students.some(s=>{
+    const sc = getSchedule(s)[dayKey];
+    return sc && sc.active && sc.time===time;
+  });
+  if(occupied){ alert('Esse horário já está ocupado por um aluno.'); return; }
+  const already = DATA.availableMarks.some(m=>m.day===dayKey && m.time===time);
+  if(already){ alert('Esse horário já está marcado como disponível.'); return; }
+  DATA.availableMarks.push({id:uid(), day:dayKey, time});
+  saveData();
+  showMarkAvailableModal=false;
+  render();
+}
+function removeMarkAvailable(id){
+  DATA.availableMarks = DATA.availableMarks.filter(m=>m.id!==id);
   saveData();
   render();
 }
@@ -934,7 +961,7 @@ function renderScheduleFields(prefix, schedule){
   }).join('');
 }
 
-function getHorarioRows(students){
+function getHorarioRows(students, extraTimes){
   const rows = new Set(HORARIO_HOURS.map(h=>`${String(h).padStart(2,'0')}:00`));
   students.forEach(s=>{
     const schedule = getSchedule(s);
@@ -943,6 +970,7 @@ function getHorarioRows(students){
       if(sc && sc.active && sc.time) rows.add(sc.time);
     });
   });
+  (extraTimes||[]).forEach(t=>{ if(t) rows.add(t); });
   return Array.from(rows).sort();
 }
 
@@ -973,9 +1001,30 @@ function renderHorario(student){
     </div>`;
 }
 
+function renderMarkAvailableModal(){
+  if(!showMarkAvailableModal) return '';
+  const dayOptions = HORARIO_DAYS_IDX.map(i=>`<option value="${i}">${WEEK_LABELS[i]}</option>`).join('');
+  return `
+    <div class="overlay" onclick="if(event.target===this)closeMarkAvailableModal()">
+      <div class="modal" style="max-width:360px;">
+        <h3>Marcar horário disponível</h3>
+        <p class="modal-sub">Escolha um dia e horário livre para destacar como "Disponível" na grade.</p>
+        <label class="field-label">Dia</label>
+        <select id="av-day" class="input">${dayOptions}</select>
+        <label class="field-label">Horário</label>
+        <input type="time" id="av-time" class="input">
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeMarkAvailableModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveMarkAvailable()">Marcar</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderHorarioGeral(readonly){
   const headerCells = HORARIO_DAYS_IDX.map(i=>`<th>${WEEK_LABELS[i]}</th>`).join('');
-  const rowTimes = getHorarioRows(DATA.students);
+  const markTimes = readonly ? [] : DATA.availableMarks.map(m=>m.time);
+  const rowTimes = getHorarioRows(DATA.students, markTimes);
   const matrix = rowTimes.map(rowTime=>{
     return HORARIO_DAYS_IDX.map(i=>{
       const dayKey = SCHEDULE_DAYS[i];
@@ -988,13 +1037,22 @@ function renderHorarioGeral(readonly){
   const rows = rowTimes.map((rowTime,rowIdx)=>{
     const cells = HORARIO_DAYS_IDX.map((i,colIdx)=>{
       const matches = matrix[rowIdx][colIdx];
+      const dayKey = SCHEDULE_DAYS[i];
       let content = '';
+      let cellBg = '#3A3D4A';
       if(matches.length){
         const full = matches.length>=3;
         const slots = matches.map(s=>`<div class="horario-slot" style="background:${full?'var(--red)':'var(--blue)'};${readonly?'':'cursor:pointer;'}" ${readonly?'':`onclick="selectStudent('${s.id}')" title="Abrir aluno"`}>${s.name.split(' ')[0]}</div>`).join('');
         content = `<div style="display:flex;flex-direction:column;gap:3px;align-items:center;">${slots}<div style="font-size:9.5px;font-weight:700;color:${full?'var(--red)':'var(--ink-soft)'};">${matches.length}/3</div></div>`;
+        cellBg = '';
+      } else if(!readonly){
+        const mark = DATA.availableMarks.find(m=>m.day===dayKey && m.time===rowTime);
+        if(mark){
+          content = `<div style="border:1.5px dashed var(--green);color:var(--green);font-size:9.5px;font-weight:700;padding:5px 4px;border-radius:6px;cursor:pointer;" onclick="removeMarkAvailable('${mark.id}')" title="Clique para remover">DISPONÍVEL ✕</div>`;
+          cellBg = '';
+        }
       }
-      return `<td${matches.length?'':' style="background:#3A3D4A;"'}>${content}</td>`;
+      return `<td${cellBg?` style="background:${cellBg};"`:''}>${content}</td>`;
     }).join('');
     return `<tr><td style="font-weight:600;color:var(--ink-soft);">${rowTime}</td>${cells}</tr>`;
   }).join('');
@@ -1004,8 +1062,11 @@ function renderHorarioGeral(readonly){
   }).join('');
   const totalsRow = `<tr style="background:var(--surface-3);"><td style="font-weight:700;color:var(--ink-soft);">Total de aulas</td>${totalCells}</tr>`;
   return `
-    <h2 style="font-size:26px;margin-bottom:4px;">Horário Geral</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Todos os alunos e horários cadastrados, de segunda a sexta (05:00–22:00, incluindo horários quebrados). Cada horário aceita até 3 alunos ao mesmo tempo${readonly?'.':' — clique em um aluno para abrir o cadastro dele.'}</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
+      <h2 style="font-size:26px;margin-bottom:0;">Horário Geral</h2>
+      ${readonly ? '' : `<button class="btn btn-primary" style="width:auto;padding:12px 20px;" onclick="openMarkAvailableModal()">+ Marcar disponível</button>`}
+    </div>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Todos os alunos e horários cadastrados, de segunda a sexta (05:00–22:00, incluindo horários quebrados). Cada horário aceita até 3 alunos ao mesmo tempo${readonly?'.':' — clique em um aluno para abrir o cadastro dele. Clique num horário marcado como "DISPONÍVEL" para removê-lo.'}</p>
     <div class="panel">
       <div style="overflow-x:auto;">
         <table class="horario-table">
@@ -1013,7 +1074,8 @@ function renderHorarioGeral(readonly){
           <tbody>${rows}${totalsRow}</tbody>
         </table>
       </div>
-    </div>`;
+    </div>
+    ${renderMarkAvailableModal()}`;
 }
 
 function renderReserveList(){
