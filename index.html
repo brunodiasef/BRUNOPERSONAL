@@ -295,6 +295,7 @@ function normalizeData(data){
   if(!data.adminPassword) data.adminPassword = 'admin123';
   if(!Array.isArray(data.reservas)) data.reservas = data.reservas ? Object.values(data.reservas) : [];
   if(!Array.isArray(data.availableMarks)) data.availableMarks = data.availableMarks ? Object.values(data.availableMarks) : [];
+  if(!Array.isArray(data.interestAlerts)) data.interestAlerts = data.interestAlerts ? Object.values(data.interestAlerts) : [];
   if(!Array.isArray(data.students)) data.students = data.students ? Object.values(data.students) : [];
   data.students = data.students.map(s=>{
     if(!Array.isArray(s.payments)) s.payments = s.payments ? Object.values(s.payments) : [];
@@ -354,7 +355,7 @@ async function saveData(){
 async function pollForUpdates(){
   if(storageUnavailable || !dbConfigured()) return;
   // não atualiza durante edições ativas, para não perder o que está sendo digitado
-  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal || showNewReserveModal || showMarkAvailableModal) return;
+  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal || showNewReserveModal || showMarkAvailableModal || showInterestAlertsModal) return;
   try{
     const res = await fetchWithTimeout(`${FIREBASE_DB_URL}/${STORAGE_KEY}.json`, null, 10000);
     const json = await res.json();
@@ -423,6 +424,7 @@ let showReserveList = false;
 let showNewReserveModal = false;
 let editingReserveId = null;
 let showMarkAvailableModal = false;
+let showInterestAlertsModal = false;
 
 const today = new Date();
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -672,6 +674,32 @@ function saveMarkAvailable(){
 }
 function removeMarkAvailable(id){
   DATA.availableMarks = DATA.availableMarks.filter(m=>m.id!==id);
+  saveData();
+  render();
+}
+
+function expressInterest(dayKey, time){
+  if(!currentUser || currentUser.role!=='aluno') return;
+  const s = findStudent(currentUser.studentId);
+  if(!s) return;
+  const dayIdx = SCHEDULE_DAYS.indexOf(dayKey);
+  const dayLabel = WEEK_LABELS[dayIdx] || dayKey;
+  if(!confirm(`Avisar seu personal trainer que você tem interesse no horário de ${dayLabel} às ${time}?`)) return;
+  DATA.interestAlerts.push({id:uid(), day:dayKey, time, studentId:s.id, studentName:s.name, createdAt:new Date().toISOString(), seen:false});
+  saveData();
+  alert('Prontinho! Seu personal trainer foi avisado do seu interesse nesse horário.');
+  render();
+}
+
+function openInterestAlerts(){ showInterestAlertsModal=true; render(); }
+function closeInterestAlerts(){ showInterestAlertsModal=false; render(); }
+function dismissInterestAlert(id){
+  DATA.interestAlerts = DATA.interestAlerts.filter(a=>a.id!==id);
+  saveData();
+  render();
+}
+function markInterestAlertsSeen(){
+  DATA.interestAlerts.forEach(a=>{ a.seen = true; });
   saveData();
   render();
 }
@@ -1045,6 +1073,38 @@ function renderHorario(student){
     </div>`;
 }
 
+function renderInterestAlertsModal(){
+  if(!showInterestAlertsModal) return '';
+  const sorted = [...DATA.interestAlerts].sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+  const rows = sorted.map(a=>{
+    const dayIdx = SCHEDULE_DAYS.indexOf(a.day);
+    const dayLabel = WEEK_LABELS[dayIdx] || a.day;
+    let whenLbl = '';
+    try{ whenLbl = new Date(a.createdAt).toLocaleString('pt-BR'); }catch(e){}
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--border-soft);">
+      <div>
+        <div style="font-weight:700;font-size:13.5px;color:var(--text);">${a.studentName}</div>
+        <div style="font-size:12px;color:var(--text-soft);">Interesse em ${dayLabel} às ${a.time}${whenLbl?` · ${whenLbl}`:''}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button class="btn btn-secondary" style="width:auto;padding:8px 12px;font-size:12px;" onclick="selectStudent('${a.studentId}'); closeInterestAlerts();">Abrir aluno</button>
+        <button class="del-link" onclick="dismissInterestAlert('${a.id}')">descartar</button>
+      </div>
+    </div>`;
+  }).join('') || `<p style="color:var(--ink-soft);font-size:13px;">Nenhum interesse registrado por enquanto.</p>`;
+  return `
+    <div class="overlay" onclick="if(event.target===this)closeInterestAlerts()">
+      <div class="modal">
+        <h3>Interesses em horários</h3>
+        <p class="modal-sub">Alunos que clicaram em um horário "DISPONÍVEL" avisando que têm interesse.</p>
+        <div style="max-height:50vh;overflow-y:auto;margin-bottom:18px;">${rows}</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeInterestAlerts()">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderMarkAvailableModal(){
   if(!showMarkAvailableModal) return '';
   const dayOptions = HORARIO_DAYS_IDX.map(i=>`<option value="${i}">${WEEK_LABELS[i]}</option>`).join('');
@@ -1093,7 +1153,7 @@ function renderHorarioGeral(readonly){
         const mark = DATA.availableMarks.find(m=>m.day===dayKey && m.time===rowTime);
         if(mark){
           content = readonly
-            ? `<div style="border:1.5px dashed var(--green);color:var(--green);font-size:9.5px;font-weight:700;padding:5px 4px;border-radius:6px;">DISPONÍVEL</div>`
+            ? `<div style="border:1.5px dashed var(--green);color:var(--green);font-size:9.5px;font-weight:700;padding:5px 4px;border-radius:6px;cursor:pointer;" onclick="expressInterest('${dayKey}','${rowTime}')" title="Clique para avisar seu personal que tem interesse">DISPONÍVEL</div>`
             : `<div style="border:1.5px dashed var(--green);color:var(--green);font-size:9.5px;font-weight:700;padding:5px 4px;border-radius:6px;cursor:pointer;" onclick="removeMarkAvailable('${mark.id}')" title="Clique para remover">DISPONÍVEL ✕</div>`;
           cellBg = '';
         }
@@ -1112,7 +1172,7 @@ function renderHorarioGeral(readonly){
       <h2 style="font-size:26px;margin-bottom:0;">Horário Geral</h2>
       ${readonly ? '' : `<button class="btn btn-primary" style="width:auto;padding:12px 20px;" onclick="openMarkAvailableModal()">+ Marcar disponível</button>`}
     </div>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Todos os alunos e horários cadastrados, de segunda a sexta (05:00–22:00, incluindo horários quebrados). Cada horário aceita até 3 alunos ao mesmo tempo${readonly?'.':' — clique em um aluno para abrir o cadastro dele. Clique num horário marcado como "DISPONÍVEL" para removê-lo.'}</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Todos os alunos e horários cadastrados, de segunda a sexta (05:00–22:00, incluindo horários quebrados). Cada horário aceita até 3 alunos ao mesmo tempo${readonly?' — clique num horário "DISPONÍVEL" para avisar seu personal que tem interesse.':' — clique em um aluno para abrir o cadastro dele. Clique num horário marcado como "DISPONÍVEL" para removê-lo.'}</p>
     <div class="panel">
       <div style="overflow-x:auto;">
         <table class="horario-table">
@@ -1659,6 +1719,7 @@ function renderAdminApp(){
         <div><div class="tb-title">Bruno Personal Trainer</div><div class="tb-sub">Administrador · BRUNOPERSONAL 27 998860938</div></div>
       </div>
       <div class="tb-right">
+        <button class="tb-btn" style="position:relative;" onclick="openInterestAlerts()">🔔 Interesses${DATA.interestAlerts.length ? ` <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;">${DATA.interestAlerts.length}</span>` : ''}</button>
         <button class="tb-btn" onclick="goHome()">Página inicial</button>
         <button class="tb-btn" style="background:${showGeneralSchedule?'var(--blue)':'rgba(255,255,255,0.08)'};" onclick="openGeneralSchedule()">Horário Geral</button>
         <button class="tb-btn" style="background:var(--blue);" onclick="openNewStudentModal()">+ Novo aluno</button>
@@ -1682,6 +1743,7 @@ function renderAdminApp(){
     ${renderNewStudentModal()}
     ${renderNewReserveModal()}
     ${renderChangePassModal()}
+    ${renderInterestAlertsModal()}
     ${renderTrainingModal(false)}
   `;
 }
