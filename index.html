@@ -196,8 +196,11 @@
   .radio-opt.sel-sozinho{background:var(--amber);color:#332000;border-color:var(--amber);}
   .radio-opt.sel-reposicao{background:var(--green);color:#052912;border-color:var(--green);}
   .radio-opt.sel-falta{background:var(--red);color:#fff;border-color:var(--red);}
+  .radio-opt.sel-descanso{background:var(--surface-3);color:var(--text);border-color:var(--text-faint);}
   .day-tag.falta{background:var(--red);color:#fff;}
+  .day-tag.descanso{background:var(--surface-3);color:var(--text-soft);}
   .day-tile.filled-falta{background:var(--red-dim);border-color:var(--red);}
+  .day-tile.filled-descanso{background:var(--surface-3);border-color:var(--text-faint);}
   .day-tile.scheduled-auto{background:var(--blue-dim);border-style:dashed;}
   .muscle-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;}
   .muscle-check{display:flex;align-items:center;gap:8px;border:1.5px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:var(--radius-sm);padding:9px 10px;font-size:12.5px;cursor:pointer;}
@@ -300,7 +303,7 @@ function normalizeData(data){
   data.students = data.students.map(s=>{
     if(!Array.isArray(s.payments)) s.payments = s.payments ? Object.values(s.payments) : [];
     if(!Array.isArray(s.trainings)) s.trainings = s.trainings ? Object.values(s.trainings) : [];
-    s.trainings = s.trainings.map(t=>({...t, muscles: Array.isArray(t.muscles) ? t.muscles : []}));
+    s.trainings = s.trainings.map(t=>({...t, muscles: Array.isArray(t.muscles) ? t.muscles : [], note: typeof t.note==='string' ? t.note : ''}));
     if(!s.schedule) s.schedule = defaultSchedule();
     SCHEDULE_DAYS.forEach(d=>{ if(!s.schedule[d]) s.schedule[d] = {active:false, time:'18:00'}; });
     if(typeof s.secQuestion !== 'string') s.secQuestion = '';
@@ -414,6 +417,7 @@ let modalDate = null;        // ISO date sendo editado no modal de treino
 let modalMuscles = [];
 let modalType = 'comigo';
 let modalTime = '';
+let modalNote = '';
 let modalStudentId = null;
 let modalAlunoMode = false;
 let showNewStudentModal = false;
@@ -847,10 +851,12 @@ function openTrainingModal(dateISO){
     modalType = existing.type;
     modalMuscles = existing.muscles ? [...existing.muscles] : [];
     modalTime = existing.time || (sched.active ? sched.time : '');
+    modalNote = existing.note || '';
   } else {
     modalType = 'comigo';
     modalMuscles = [];
     modalTime = sched.active ? sched.time : '';
+    modalNote = '';
   }
   render();
 }
@@ -876,11 +882,12 @@ function toggleModalMuscle(m){
 function saveTraining(){
   const s=findStudent(modalStudentId);
   s.trainings = s.trainings.filter(t=>t.date!==modalDate);
-  if(modalType==='falta'){
-    s.trainings.push({id:uid(), date:modalDate, type:'falta', muscles:[], time:null});
+  const note = modalNote.trim();
+  if(modalType==='falta' || modalType==='descanso'){
+    s.trainings.push({id:uid(), date:modalDate, type:modalType, muscles:[], time:null, note});
   } else {
     if(modalMuscles.length===0){ alert('Selecione ao menos um grupamento muscular.'); return; }
-    const entry = {id:uid(), date:modalDate, type:modalType, muscles:[...modalMuscles]};
+    const entry = {id:uid(), date:modalDate, type:modalType, muscles:[...modalMuscles], note};
     entry.time = (modalType==='comigo'||modalType==='reposicao') ? (modalTime || null) : null;
     s.trainings.push(entry);
   }
@@ -1055,7 +1062,7 @@ function renderHorario(student){
       const sc = schedule[SCHEDULE_DAYS[i]];
       let content = '';
       if(sc && sc.active && sc.time===rowTime){
-        content = `<div class="horario-slot">${student.name.split(' ')[0]} · ${sc.time}</div>`;
+        content = `<div class="horario-slot" style="background:${student.suspended?'var(--amber)':'var(--blue)'};">${student.name.split(' ')[0]} · ${sc.time}</div>`;
       }
       return `<td${content?'':' style="background:var(--surface-2);"'}>${content}</td>`;
     }).join('');
@@ -1146,7 +1153,7 @@ function renderHorarioGeral(readonly){
       let cellBg = '#3A3D4A';
       if(matches.length){
         const full = matches.length>=3;
-        const slots = matches.map(s=>`<div class="horario-slot" style="background:${full?'var(--red)':'var(--blue)'};${readonly?'':'cursor:pointer;'}" ${readonly?'':`onclick="selectStudent('${s.id}')" title="Abrir aluno"`}>${s.name.split(' ')[0]}</div>`).join('');
+        const slots = matches.map(s=>`<div class="horario-slot" style="background:${full?'var(--red)':(s.suspended?'var(--amber)':'var(--blue)')};${readonly?'':'cursor:pointer;'}" ${readonly?'':`onclick="selectStudent('${s.id}')" title="Abrir aluno"`}>${s.name.split(' ')[0]}</div>`).join('');
         content = `<div style="display:flex;flex-direction:column;gap:3px;align-items:center;">${slots}<div style="font-size:9.5px;font-weight:700;color:${full?'var(--red)':'var(--ink-soft)'};">${matches.length}/3</div></div>`;
         cellBg = '';
       } else {
@@ -1354,15 +1361,18 @@ function renderTrainingModal(readonly){
           <div class="radio-opt ${modalType==='sozinho'?'sel-sozinho':''}" onclick="setModalType('sozinho')">Treinou sozinho</div>
           <div class="radio-opt ${modalType==='reposicao'?'sel-reposicao':''}" onclick="setModalType('reposicao')">Aula de reposição</div>
           <div class="radio-opt ${modalType==='falta'?'sel-falta':''}" onclick="setModalType('falta')">Faltou</div>
+          <div class="radio-opt ${modalType==='descanso'?'sel-descanso':''}" onclick="setModalType('descanso')">Descanso</div>
         </div>
         ${(modalType==='comigo'||modalType==='reposicao') ? `
         <label class="field-label">Horário do treino</label>
         <input type="time" id="modal-time" class="input" value="${modalTime}" oninput="modalTime=this.value">
         ` : ''}
-        ${modalType!=='falta' ? `
+        ${(modalType!=='falta' && modalType!=='descanso') ? `
         <label class="field-label">Grupamento muscular</label>
         <div class="muscle-grid">${musclesHtml}</div>
-        ` : `<p style="color:var(--ink-soft);font-size:13px;margin-bottom:16px;">Marque como falta — não é preciso registrar grupamento muscular.</p>`}
+        ` : `<p style="color:var(--ink-soft);font-size:13px;margin-bottom:16px;">${modalType==='descanso' ? 'Dia de descanso — não é preciso registrar grupamento muscular.' : 'Marque como falta — não é preciso registrar grupamento muscular.'}</p>`}
+        <label class="field-label">Observação (opcional)</label>
+        <textarea id="modal-note" class="input" style="min-height:70px;resize:vertical;font-family:inherit;" placeholder="Ex: sentiu dor no joelho, pediu para reduzir carga..." oninput="modalNote=this.value">${modalNote}</textarea>
         <div class="modal-actions">
           <button class="btn btn-danger" onclick="removeTrainingFromModal()">Remover</button>
           <button class="btn btn-secondary" onclick="closeTrainingModal()">Cancelar</button>
@@ -1452,7 +1462,7 @@ function renderFinanceiro(student, readonly){
 }
 
 /* ============ RENDER: TREINO ============ */
-function trainingTagLabel(type){ return type==='comigo' ? 'Comigo' : type==='sozinho' ? 'Sozinho' : type==='reposicao' ? 'Reposição' : 'Faltou'; }
+function trainingTagLabel(type){ return type==='comigo' ? 'Comigo' : type==='sozinho' ? 'Sozinho' : type==='reposicao' ? 'Reposição' : type==='descanso' ? 'Descanso' : 'Faltou'; }
 function renderTreino(student, readonly){
   const weekDates = getWeekDates(weekOffset);
   const rangeLabel = `${fmtBR(toISO(weekDates[0]))} — ${fmtBR(toISO(weekDates[5]))}`;
@@ -1483,7 +1493,7 @@ function renderTreino(student, readonly){
     }
     let bodyHtml;
     if(entry){
-      cls += entry.type==='comigo' ? ' filled-comigo' : entry.type==='sozinho' ? ' filled-sozinho' : entry.type==='reposicao' ? ' filled-reposicao' : ' filled-falta';
+      cls += entry.type==='comigo' ? ' filled-comigo' : entry.type==='sozinho' ? ' filled-sozinho' : entry.type==='reposicao' ? ' filled-reposicao' : entry.type==='descanso' ? ' filled-descanso' : ' filled-falta';
       const badges = (entry.muscles||[]).map(m=>{
         return `<span class="muscle-badge">${m}</span>`;
       }).join('');
@@ -1515,8 +1525,9 @@ function renderTreino(student, readonly){
       <td>${fmtBR(t.date)}</td>
       <td><span class="day-tag ${t.type}" style="display:inline-block;">${trainingTagLabel(t.type)}${timeLbl}</span></td>
       <td>${badges}</td>
+      <td style="color:var(--text-soft);font-size:12.5px;">${t.note||''}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="3" style="color:var(--ink-soft);padding:20px 8px;">Nenhum treino registrado neste mês.</td></tr>`;
+  }).join('') || `<tr><td colspan="4" style="color:var(--ink-soft);padding:20px 8px;">Nenhum treino registrado neste mês.</td></tr>`;
 
   const previstosMes = countPrevistosNoMes(student, ty, tm);
   const realizadosMes = monthHistory.filter(t=>t.type==='comigo'||t.type==='sozinho'||t.type==='reposicao').length;
@@ -1550,7 +1561,7 @@ function renderTreino(student, readonly){
       </div>
       <div class="table-scroll">
       <table>
-        <thead><tr><th>Data</th><th>Tipo</th><th>Grupamento muscular</th></tr></thead>
+        <thead><tr><th>Data</th><th>Tipo</th><th>Grupamento muscular</th><th>Observação</th></tr></thead>
         <tbody>${historyRows}</tbody>
       </table>
       </div>
