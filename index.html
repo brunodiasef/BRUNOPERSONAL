@@ -137,6 +137,16 @@
   .stat-row .val{font-family:'Oswald';font-size:19px;}
   .chart-wrap{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);}
   .chart-caption{font-size:10.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
+  .form-section-title{font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;margin:22px 0 12px;padding:8px 12px;border-radius:8px;border-left:4px solid;}
+  .form-section-title:first-child{margin-top:0;}
+  .pair-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+  .pair-row .pair-item .field-label{margin-bottom:4px;}
+  .pair-item-label{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+  @media(max-width:480px){
+    .modal{padding:18px 16px;}
+    .form-group{min-width:110px;}
+    .pair-row{gap:8px;}
+  }
 
   /* tabs */
   .tabs{display:flex;gap:4px;margin-bottom:22px;border-bottom:1.5px solid var(--border);overflow-x:auto;white-space:nowrap;scrollbar-width:none;}
@@ -269,22 +279,23 @@ const SKINFOLD_SITES = [
   {key:'coxa', label:'Coxa'}
 ];
 /* ---- Avaliação física: perimetria ---- */
-const PERIMETER_SITES = [
+const PERIMETER_SINGLE = [
   {key:'torax', label:'Tórax'},
   {key:'cintura', label:'Cintura'},
   {key:'abdomen', label:'Abdômen'},
   {key:'quadril', label:'Quadril'},
-  {key:'ombro', label:'Ombro'},
-  {key:'bracoDireitoRelax', label:'Braço direito (relaxado)'},
-  {key:'bracoDireitoContraido', label:'Braço direito (contraído)'},
-  {key:'bracoEsquerdoRelax', label:'Braço esquerdo (relaxado)'},
-  {key:'bracoEsquerdoContraido', label:'Braço esquerdo (contraído)'},
-  {key:'antebracoDireito', label:'Antebraço direito'},
-  {key:'antebracoEsquerdo', label:'Antebraço esquerdo'},
-  {key:'coxaDireita', label:'Coxa direita'},
-  {key:'coxaEsquerda', label:'Coxa esquerda'},
-  {key:'panturrilhaDireita', label:'Panturrilha direita'},
-  {key:'panturrilhaEsquerda', label:'Panturrilha esquerda'}
+  {key:'ombro', label:'Ombro'}
+];
+const PERIMETER_PAIRS = [
+  {label:'Braço (relaxado)', dKey:'bracoDireitoRelax', eKey:'bracoEsquerdoRelax'},
+  {label:'Braço (contraído)', dKey:'bracoDireitoContraido', eKey:'bracoEsquerdoContraido'},
+  {label:'Antebraço', dKey:'antebracoDireito', eKey:'antebracoEsquerdo'},
+  {label:'Coxa', dKey:'coxaDireita', eKey:'coxaEsquerda'},
+  {label:'Panturrilha', dKey:'panturrilhaDireita', eKey:'panturrilhaEsquerda'}
+];
+const PERIMETER_SITES = [
+  ...PERIMETER_SINGLE,
+  ...PERIMETER_PAIRS.flatMap(p=>[{key:p.dKey,label:p.label+' direita'},{key:p.eKey,label:p.label+' esquerda'}])
 ];
 
 function calcIMC(weightKg, heightCm){
@@ -370,6 +381,7 @@ function normalizeData(data){
     SCHEDULE_DAYS.forEach(d=>{ if(!s.schedule[d]) s.schedule[d] = {active:false, time:'18:00'}; });
     if(typeof s.secQuestion !== 'string') s.secQuestion = '';
     if(typeof s.whatsapp !== 'string') s.whatsapp = '';
+    if(typeof s.birthDate !== 'string') s.birthDate = '';
     if(typeof s.suspended !== 'boolean') s.suspended = false;
     if(!Array.isArray(s.assessments)) s.assessments = s.assessments ? Object.values(s.assessments) : [];
     if(typeof s.secAnswer !== 'string') s.secAnswer = '';
@@ -837,6 +849,7 @@ function saveProfile(id){
   const s=findStudent(id);
   s.name=document.getElementById('pf-name').value.trim();
   s.whatsapp=document.getElementById('pf-whatsapp').value.trim();
+  s.birthDate=document.getElementById('pf-birthdate').value;
   const newUser=document.getElementById('pf-user').value.trim();
   if(DATA.students.some(o=>o.username===newUser && o.id!==id)){ alert('Esse usuário já está em uso por outro aluno.'); return; }
   s.username=newUser;
@@ -1759,15 +1772,39 @@ function renderAssessmentModal(student){
   const editing = editingAssessmentId ? student.assessments.find(a=>a.id===editingAssessmentId) : null;
   const sf = editing ? (editing.skinfolds||{}) : {};
   const pm = editing ? (editing.perimeters||{}) : {};
+  let defaultAge = '';
+  if(editing && editing.age) defaultAge = editing.age;
+  else if(!editing && student.birthDate){
+    const bd = parseISO(student.birthDate);
+    let a = today.getFullYear() - bd.getFullYear();
+    const notYet = (today.getMonth()<bd.getMonth()) || (today.getMonth()===bd.getMonth() && today.getDate()<bd.getDate());
+    if(notYet) a--;
+    defaultAge = a;
+  }
   const skinfoldFields = SKINFOLD_SITES.map(s=>`
-    <div class="form-group"><label class="field-label">${s.label} (mm)</label><input id="as-sf-${s.key}" type="number" step="0.1" class="input" style="margin-bottom:0;" value="${sf[s.key]||''}"></div>
+    <div class="form-group"><label class="field-label">${s.label} (mm)</label><input id="as-sf-${s.key}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${sf[s.key]||''}"></div>
   `).join('');
-  const perimeterFields = PERIMETER_SITES.map(p=>`
-    <div class="form-group"><label class="field-label">${p.label} (cm)</label><input id="as-pm-${p.key}" type="number" step="0.1" class="input" style="margin-bottom:0;" value="${pm[p.key]||''}"></div>
+  const singleFields = PERIMETER_SINGLE.map(p=>`
+    <div class="form-group"><label class="field-label">${p.label} (cm)</label><input id="as-pm-${p.key}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${pm[p.key]||''}"></div>
+  `).join('');
+  const pairFields = PERIMETER_PAIRS.map(pr=>`
+    <div style="margin-bottom:14px;">
+      <label class="field-label" style="margin-bottom:6px;">${pr.label} (cm)</label>
+      <div class="pair-row">
+        <div class="pair-item">
+          <div class="pair-item-label">Direita</div>
+          <input id="as-pm-${pr.dKey}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${pm[pr.dKey]||''}">
+        </div>
+        <div class="pair-item">
+          <div class="pair-item-label">Esquerda</div>
+          <input id="as-pm-${pr.eKey}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${pm[pr.eKey]||''}">
+        </div>
+      </div>
+    </div>
   `).join('');
   const photosHtml = modalAssessmentPhotos.map((p,i)=>`
     <div style="position:relative;display:inline-block;margin:0 8px 8px 0;">
-      <img src="${p}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);">
+      <img src="${p}" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);">
       <button onclick="removeAssessmentPhoto(${i})" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:1;">✕</button>
     </div>
   `).join('');
@@ -1777,8 +1814,8 @@ function renderAssessmentModal(student){
         <h3>${editing?'Editar avaliação':'Nova avaliação física'}</h3>
         <p class="modal-sub">Protocolo Pollock 7 dobras. Preencha o que tiver disponível.</p>
 
-        <label class="field-label" style="margin-top:4px;">Dados gerais</label>
-        <div class="form-row" style="margin-bottom:16px;">
+        <div class="form-section-title" style="color:var(--blue);border-color:var(--blue);background:var(--blue-dim);">Dados gerais</div>
+        <div class="form-row" style="margin-bottom:8px;">
           <div class="form-group"><label class="field-label">Data</label><input id="as-date" type="date" class="input" style="margin-bottom:0;" value="${editing?editing.date:toISO(today)}"></div>
           <div class="form-group"><label class="field-label">Sexo</label>
             <select id="as-sex" class="input" style="margin-bottom:0;">
@@ -1786,22 +1823,23 @@ function renderAssessmentModal(student){
               <option value="F" ${editing&&editing.sex==='F'?'selected':''}>Feminino</option>
             </select>
           </div>
-          <div class="form-group"><label class="field-label">Idade</label><input id="as-age" type="number" class="input" style="margin-bottom:0;" value="${editing?(editing.age||''):''}"></div>
+          <div class="form-group"><label class="field-label">Idade</label><input id="as-age" type="number" inputmode="numeric" class="input" style="margin-bottom:0;" value="${defaultAge}"></div>
         </div>
-        <div class="form-row" style="margin-bottom:20px;">
-          <div class="form-group"><label class="field-label">Peso (kg)</label><input id="as-weight" type="number" step="0.1" class="input" style="margin-bottom:0;" value="${editing?(editing.weight||''):''}"></div>
-          <div class="form-group"><label class="field-label">Altura (cm)</label><input id="as-height" type="number" step="0.1" class="input" style="margin-bottom:0;" value="${editing?(editing.height||''):''}"></div>
+        <div class="form-row" style="margin-bottom:8px;">
+          <div class="form-group"><label class="field-label">Peso (kg)</label><input id="as-weight" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${editing?(editing.weight||''):''}"></div>
+          <div class="form-group"><label class="field-label">Altura (cm)</label><input id="as-height" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${editing?(editing.height||''):''}"></div>
         </div>
 
-        <label class="field-label">Dobras cutâneas — Pollock 7 dobras (mm)</label>
-        <div class="form-row" style="margin-bottom:20px;">${skinfoldFields}</div>
+        <div class="form-section-title" style="color:var(--amber);border-color:var(--amber);background:var(--amber-dim);">Dobras cutâneas — Pollock 7 dobras</div>
+        <div class="form-row" style="margin-bottom:8px;">${skinfoldFields}</div>
 
-        <label class="field-label">Perimetria (cm)</label>
-        <div class="form-row" style="margin-bottom:20px;">${perimeterFields}</div>
+        <div class="form-section-title" style="color:var(--green);border-color:var(--green);background:var(--green-dim);">Perimetria</div>
+        <div class="form-row" style="margin-bottom:14px;">${singleFields}</div>
+        ${pairFields}
 
         <label class="field-label">Fotos</label>
         <div style="margin-bottom:10px;">${photosHtml}</div>
-        <input type="file" accept="image/*" multiple id="as-photo-input" style="margin-bottom:20px;font-size:12.5px;" onchange="handleAssessmentPhotoUpload(this)">
+        <input type="file" accept="image/*" multiple id="as-photo-input" style="margin-bottom:20px;font-size:12.5px;width:100%;" onchange="handleAssessmentPhotoUpload(this)">
 
         <label class="field-label">Observações</label>
         <textarea id="as-notes" class="input" style="min-height:70px;resize:vertical;font-family:inherit;margin-bottom:4px;">${editing?(editing.notes||''):''}</textarea>
@@ -1820,7 +1858,18 @@ function renderViewAssessmentModal(student, readonly){
   if(!a) return '';
   const r = assessmentResults(a);
   const skinfoldRows = SKINFOLD_SITES.map(s=>`<div class="stat-row"><span class="lbl">${s.label}</span><span class="val" style="font-size:14px;">${(a.skinfolds&&a.skinfolds[s.key])?`${a.skinfolds[s.key]} mm`:'—'}</span></div>`).join('');
-  const perimeterRows = PERIMETER_SITES.map(p=>`<div class="stat-row"><span class="lbl">${p.label}</span><span class="val" style="font-size:14px;">${(a.perimeters&&a.perimeters[p.key])?`${a.perimeters[p.key]} cm`:'—'}</span></div>`).join('');
+  const perimeterSingleRows = PERIMETER_SINGLE.map(p=>`<div class="stat-row"><span class="lbl">${p.label}</span><span class="val" style="font-size:14px;">${(a.perimeters&&a.perimeters[p.key])?`${a.perimeters[p.key]} cm`:'—'}</span></div>`).join('');
+  const perimeterPairRows = PERIMETER_PAIRS.map(pr=>{
+    const dv = (a.perimeters&&a.perimeters[pr.dKey]) ? `${a.perimeters[pr.dKey]} cm` : '—';
+    const ev = (a.perimeters&&a.perimeters[pr.eKey]) ? `${a.perimeters[pr.eKey]} cm` : '—';
+    return `<div style="margin-bottom:10px;">
+      <div class="pair-item-label" style="margin-bottom:4px;">${pr.label}</div>
+      <div class="pair-row" style="margin-bottom:0;">
+        <div class="stat-row" style="border-bottom:none;padding:4px 0;"><span class="lbl">Direita</span><span class="val" style="font-size:14px;">${dv}</span></div>
+        <div class="stat-row" style="border-bottom:none;padding:4px 0;"><span class="lbl">Esquerda</span><span class="val" style="font-size:14px;">${ev}</span></div>
+      </div>
+    </div>`;
+  }).join('');
   const photosHtml = (a.photos||[]).map(p=>`<img src="${p}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);margin:0 8px 8px 0;">`).join('') || `<p style="color:var(--text-faint);font-size:12.5px;">Nenhuma foto nesta avaliação.</p>`;
   return `
     <div class="overlay" onclick="if(event.target===this)closeViewAssessment()">
@@ -1843,7 +1892,8 @@ function renderViewAssessmentModal(student, readonly){
         <label class="field-label">Dobras cutâneas</label>
         <div style="margin-bottom:16px;">${skinfoldRows}</div>
         <label class="field-label">Perimetria</label>
-        <div style="margin-bottom:16px;">${perimeterRows}</div>
+        <div style="margin-bottom:8px;">${perimeterSingleRows}</div>
+        <div style="margin-bottom:16px;">${perimeterPairRows}</div>
         ${a.notes?`<label class="field-label">Observações</label><p style="font-size:13.5px;color:var(--text-soft);margin-bottom:16px;">${a.notes}</p>`:''}
         <label class="field-label">Fotos</label>
         <div style="margin-bottom:20px;">${photosHtml}</div>
@@ -1867,6 +1917,7 @@ function renderPerfil(student){
       <h4>Dados do aluno</h4>
       <div class="form-row" style="margin-bottom:16px;">
         <div class="form-group" style="flex:1;min-width:200px;"><label class="field-label">Nome completo</label><input id="pf-name" class="input" style="margin-bottom:0;" value="${student.name}"></div>
+        <div class="form-group"><label class="field-label">Data de nascimento</label><input id="pf-birthdate" type="date" class="input" style="margin-bottom:0;" value="${student.birthDate||''}"></div>
         <div class="form-group"><label class="field-label">WhatsApp (com DDD)</label><input id="pf-whatsapp" class="input" style="margin-bottom:0;" value="${student.whatsapp||''}" placeholder="Ex: 27 99999-9999"></div>
       </div>
       <div class="form-row" style="margin-bottom:16px;">
