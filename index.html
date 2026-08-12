@@ -142,6 +142,16 @@
   .pair-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
   .pair-row .pair-item .field-label{margin-bottom:4px;}
   .pair-item-label{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+  .photo-thumb{cursor:pointer;transition:.15s;}
+  .photo-thumb:hover{opacity:0.85;transform:scale(1.02);}
+  .photo-viewer-wrap{position:relative;display:inline-block;line-height:0;background:#000;border-radius:10px;overflow:hidden;}
+  .photo-viewer-wrap img{display:block;max-width:88vw;max-height:82vh;width:auto;height:auto;}
+  .grid-line{position:absolute;pointer-events:none;}
+  .grid-line.gl-v{top:0;bottom:0;width:1px;background:rgba(255,255,255,0.32);}
+  .grid-line.gl-h{left:0;right:0;height:1px;background:rgba(255,255,255,0.32);}
+  .grid-line.gl-center{background:rgba(255,60,60,0.65);}
+  .grid-line.gl-v-center{left:50%;width:1.5px;}
+  .grid-line.gl-h-center{top:50%;height:1.5px;}
   @media(max-width:480px){
     .modal{padding:18px 16px;}
     .form-group{min-width:110px;}
@@ -433,7 +443,7 @@ async function saveData(){
 async function pollForUpdates(){
   if(storageUnavailable || !dbConfigured()) return;
   // não atualiza durante edições ativas, para não perder o que está sendo digitado
-  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal || showNewReserveModal || showMarkAvailableModal || showInterestAlertsModal || showAssessmentModal || viewingAssessmentId) return;
+  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal || showNewReserveModal || showMarkAvailableModal || showInterestAlertsModal || showAssessmentModal || viewingAssessmentId || viewingPhotoUrl) return;
   try{
     const res = await fetchWithTimeout(`${FIREBASE_DB_URL}/${STORAGE_KEY}.json`, null, 10000);
     const json = await res.json();
@@ -508,6 +518,7 @@ let showAssessmentModal = false;
 let editingAssessmentId = null;
 let modalAssessmentPhotos = [];
 let viewingAssessmentId = null;
+let viewingPhotoUrl = null;
 
 const today = new Date();
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -975,6 +986,8 @@ function deleteAssessment(studentId, assessmentId){
 }
 function viewAssessment(id){ viewingAssessmentId = id; render(); }
 function closeViewAssessment(){ viewingAssessmentId = null; render(); }
+function openPhotoViewer(url){ viewingPhotoUrl = url; render(); }
+function closePhotoViewer(){ viewingPhotoUrl = null; render(); }
 
 /* ============ AÇÕES: TREINO ============ */
 function getSchedule(student){ return student.schedule || defaultSchedule(); }
@@ -1764,7 +1777,8 @@ function renderAvaliacao(student, readonly){
       </div>
     </div>
     ${renderAssessmentModal(student)}
-    ${renderViewAssessmentModal(student, readonly)}`;
+    ${renderViewAssessmentModal(student, readonly)}
+    ${renderPhotoViewer()}`;
 }
 
 function renderAssessmentModal(student){
@@ -1804,7 +1818,7 @@ function renderAssessmentModal(student){
   `).join('');
   const photosHtml = modalAssessmentPhotos.map((p,i)=>`
     <div style="position:relative;display:inline-block;margin:0 8px 8px 0;">
-      <img src="${p}" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);">
+      <img src="${p}" class="photo-thumb" onclick="openPhotoViewer('${p}')" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);">
       <button onclick="removeAssessmentPhoto(${i})" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:1;">✕</button>
     </div>
   `).join('');
@@ -1852,6 +1866,28 @@ function renderAssessmentModal(student){
     </div>`;
 }
 
+function renderPhotoViewer(){
+  if(!viewingPhotoUrl) return '';
+  const lines = [
+    `<div class="grid-line gl-v gl-v-center gl-center" style="left:50%;"></div>`,
+    `<div class="grid-line gl-h gl-h-center gl-center" style="top:50%;"></div>`,
+    `<div class="grid-line gl-v" style="left:25%;"></div>`,
+    `<div class="grid-line gl-v" style="left:75%;"></div>`,
+    `<div class="grid-line gl-h" style="top:25%;"></div>`,
+    `<div class="grid-line gl-h" style="top:75%;"></div>`
+  ].join('');
+  return `
+    <div class="overlay" style="z-index:70;" onclick="if(event.target===this)closePhotoViewer()">
+      <div style="text-align:center;">
+        <div class="photo-viewer-wrap">
+          <img src="${viewingPhotoUrl}" alt="Foto de avaliação">
+          ${lines}
+        </div>
+        <button class="btn btn-secondary" style="width:auto;padding:10px 22px;margin-top:14px;" onclick="closePhotoViewer()">Fechar</button>
+      </div>
+    </div>`;
+}
+
 function renderViewAssessmentModal(student, readonly){
   if(!viewingAssessmentId) return '';
   const a = (student.assessments||[]).find(x=>x.id===viewingAssessmentId);
@@ -1870,7 +1906,7 @@ function renderViewAssessmentModal(student, readonly){
       </div>
     </div>`;
   }).join('');
-  const photosHtml = (a.photos||[]).map(p=>`<img src="${p}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);margin:0 8px 8px 0;">`).join('') || `<p style="color:var(--text-faint);font-size:12.5px;">Nenhuma foto nesta avaliação.</p>`;
+  const photosHtml = (a.photos||[]).map(p=>`<img src="${p}" class="photo-thumb" onclick="openPhotoViewer('${p}')" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);margin:0 8px 8px 0;">`).join('') || `<p style="color:var(--text-faint);font-size:12.5px;">Nenhuma foto nesta avaliação.</p>`;
   return `
     <div class="overlay" onclick="if(event.target===this)closeViewAssessment()">
       <div class="modal" style="max-width:640px;">
