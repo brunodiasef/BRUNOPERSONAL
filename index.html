@@ -443,7 +443,7 @@ async function saveData(){
 async function pollForUpdates(){
   if(storageUnavailable || !dbConfigured()) return;
   // não atualiza durante edições ativas, para não perder o que está sendo digitado
-  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal || showNewReserveModal || showMarkAvailableModal || showInterestAlertsModal || showAssessmentModal || viewingAssessmentId || viewingPhotoUrl) return;
+  if(modalDate || showNewStudentModal || showChangePassModal || showStudentChangePassModal || showNewReserveModal || showMarkAvailableModal || showInterestAlertsModal || showAssessmentModal || viewingAssessmentId || viewingPhotoUrl || showCompareModal) return;
   try{
     const res = await fetchWithTimeout(`${FIREBASE_DB_URL}/${STORAGE_KEY}.json`, null, 10000);
     const json = await res.json();
@@ -521,6 +521,8 @@ let modalAssessmentPhotos = [];
 let modalAssessmentData = {};
 let viewingAssessmentId = null;
 let viewingPhotoUrl = null;
+let compareSelection = [];
+let showCompareModal = false;
 
 const today = new Date();
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -1015,6 +1017,128 @@ function viewAssessment(id){ viewingAssessmentId = id; render(); }
 function closeViewAssessment(){ viewingAssessmentId = null; render(); }
 function openPhotoViewer(url){ viewingPhotoUrl = url; render(); }
 function closePhotoViewer(){ viewingPhotoUrl = null; render(); }
+
+function toggleCompareSelect(id){
+  if(compareSelection.includes(id)) compareSelection = compareSelection.filter(x=>x!==id);
+  else compareSelection.push(id);
+  render();
+}
+function openCompareModal(){
+  if(compareSelection.length<2){ alert('Selecione ao menos 2 avaliações para comparar.'); return; }
+  showCompareModal = true;
+  render();
+}
+function closeCompareModal(){ showCompareModal = false; render(); }
+function clearCompareSelection(){ compareSelection = []; render(); }
+
+function renderMiniLineChart(dates, values, color, unit){
+  const w=560, h=150, padL=8, padR=8, padT=18, padB=26;
+  const n = values.length;
+  const valid = values.map((v,i)=>({v,i})).filter(o=>o.v!=null && !isNaN(o.v));
+  if(valid.length<2) return `<p style="color:var(--text-faint);font-size:12px;text-align:center;padding:30px 0;">Dados insuficientes para o gráfico.</p>`;
+  const vals = valid.map(o=>o.v);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = (max-min) || 1;
+  const chartW = w-padL-padR, chartH = h-padT-padB;
+  const x = i => n===1 ? padL+chartW/2 : padL + (i/(n-1))*chartW;
+  const y = v => padT + chartH - ((v-min)/range)*chartH;
+  const points = valid.map(o=>`${x(o.i).toFixed(1)},${y(o.v).toFixed(1)}`).join(' ');
+  const dots = valid.map(o=>`<circle cx="${x(o.i).toFixed(1)}" cy="${y(o.v).toFixed(1)}" r="3.5" fill="${color}"></circle><text x="${x(o.i).toFixed(1)}" y="${(y(o.v)-9).toFixed(1)}" font-size="10" fill="${color}" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700">${o.v.toFixed(1)}${unit||''}</text>`).join('');
+  const xLabels = dates.map((d,i)=>`<text x="${x(i).toFixed(1)}" y="${h-6}" font-size="9" fill="#6A6D7C" text-anchor="middle" font-family="Inter,sans-serif">${fmtBR(d).slice(0,5)}</text>`).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:130px;display:block;overflow:visible;">
+    <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2"></polyline>
+    ${dots}${xLabels}
+  </svg>`;
+}
+
+function renderCompareModal(student){
+  if(!showCompareModal) return '';
+  const selected = (student.assessments||[]).filter(a=>compareSelection.includes(a.id)).sort((a,b)=>a.date.localeCompare(b.date));
+  if(selected.length<2){ return ''; }
+  const dates = selected.map(a=>a.date);
+  const results = selected.map(a=>assessmentResults(a));
+  const first = results[0], last = results[results.length-1];
+
+  const chartsHtml = [
+    {label:'Peso (kg)', color:'#4C6BFF', vals: selected.map(a=>a.weight)},
+    {label:'% Gordura', color:'#F2A93B', vals: results.map(r=>r.pollock?r.pollock.bf:null)},
+    {label:'Massa magra (kg)', color:'#33C97A', vals: results.map(r=>r.leanMass)},
+    {label:'Massa gorda (kg)', color:'#FF5C4D', vals: results.map(r=>r.fatMass)}
+  ].map(c=>`
+    <div class="panel" style="margin-bottom:16px;">
+      <h4 style="margin-bottom:2px;">${c.label}</h4>
+      ${renderMiniLineChart(dates, c.vals, c.color)}
+    </div>
+  `).join('');
+
+  function diffCell(v0, v1, goodDirection){
+    if(v0==null || v1==null || isNaN(v0) || isNaN(v1)) return '—';
+    const diff = v1-v0;
+    const sign = diff>0?'+':'';
+    let color = 'var(--text-soft)';
+    if(goodDirection==='up') color = diff>0?'var(--green)':diff<0?'var(--red)':'var(--text-soft)';
+    else if(goodDirection==='down') color = diff<0?'var(--green)':diff>0?'var(--red)':'var(--text-soft)';
+    return `<span style="color:${color};font-weight:700;">${sign}${diff.toFixed(1)}</span>`;
+  }
+
+  const dateHeaders = dates.map(d=>`<th>${fmtBR(d)}</th>`).join('');
+
+  function metricRow(label, vals, unit, goodDirection){
+    const cells = vals.map(v=> v!=null && !isNaN(v) ? `<td>${v.toFixed(1)}${unit||''}</td>` : `<td>—</td>`).join('');
+    const diff = diffCell(vals[0], vals[vals.length-1], goodDirection);
+    return `<tr><td style="font-weight:600;color:var(--text);">${label}</td>${cells}<td>${diff}</td></tr>`;
+  }
+
+  const generalRows = [
+    metricRow('Peso (kg)', selected.map(a=>a.weight), '', null),
+    metricRow('IMC', results.map(r=>r.imc), '', null),
+    metricRow('% Gordura', results.map(r=>r.pollock?r.pollock.bf:null), '%', 'down'),
+    metricRow('Massa magra (kg)', results.map(r=>r.leanMass), '', 'up'),
+    metricRow('Massa gorda (kg)', results.map(r=>r.fatMass), '', 'down'),
+    metricRow('Soma 7 dobras (mm)', results.map(r=>r.pollock?r.pollock.sum7:null), '', 'down')
+  ].join('');
+
+  const skinfoldRows = SKINFOLD_SITES.map(s=>metricRow(s.label, selected.map(a=>(a.skinfolds||{})[s.key]), ' mm', 'down')).join('');
+
+  const perimeterRows = [
+    ...PERIMETER_SINGLE.map(p=>metricRow(p.label, selected.map(a=>(a.perimeters||{})[p.key]), ' cm', null)),
+    ...PERIMETER_PAIRS.flatMap(pr=>[
+      metricRow(`${pr.label} (esquerda)`, selected.map(a=>(a.perimeters||{})[pr.eKey]), ' cm', null),
+      metricRow(`${pr.label} (direita)`, selected.map(a=>(a.perimeters||{})[pr.dKey]), ' cm', null)
+    ])
+  ].join('');
+
+  return `
+    <div class="overlay" onclick="if(event.target===this)closeCompareModal()">
+      <div class="modal" style="max-width:760px;">
+        <h3>Comparação de avaliações</h3>
+        <p class="modal-sub">${selected.length} avaliações, de ${fmtBR(dates[0])} até ${fmtBR(dates[dates.length-1])}. A última coluna mostra a variação entre a primeira e a última selecionada.</p>
+
+        <div class="form-section-title" style="color:var(--blue);border-color:var(--blue);background:var(--blue-dim);">Evolução</div>
+        ${chartsHtml}
+
+        <div class="form-section-title" style="color:var(--amber);border-color:var(--amber);background:var(--amber-dim);">Resumo geral</div>
+        <div class="table-scroll" style="margin-bottom:8px;">
+          <table><thead><tr><th></th>${dateHeaders}<th>Variação</th></tr></thead><tbody>${generalRows}</tbody></table>
+        </div>
+
+        <div class="form-section-title" style="color:var(--amber);border-color:var(--amber);background:var(--amber-dim);">Dobras cutâneas</div>
+        <div class="table-scroll" style="margin-bottom:8px;">
+          <table><thead><tr><th></th>${dateHeaders}<th>Variação</th></tr></thead><tbody>${skinfoldRows}</tbody></table>
+        </div>
+
+        <div class="form-section-title" style="color:var(--green);border-color:var(--green);background:var(--green-dim);">Perimetria</div>
+        <div class="table-scroll" style="margin-bottom:20px;">
+          <table><thead><tr><th></th>${dateHeaders}<th>Variação</th></tr></thead><tbody>${perimeterRows}</tbody></table>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="closeCompareModal()">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 
 /* ============ AÇÕES: TREINO ============ */
 function getSchedule(student){ return student.schedule || defaultSchedule(); }
@@ -1774,9 +1898,11 @@ function renderTreino(student, readonly){
 /* ============ RENDER: AVALIAÇÃO FÍSICA ============ */
 function renderAvaliacao(student, readonly){
   const sorted = [...(student.assessments||[])].sort((a,b)=>b.date.localeCompare(a.date));
+  const canCompare = sorted.length>=2;
   const rows = sorted.map(a=>{
     const r = assessmentResults(a);
     return `<tr>
+      ${canCompare?`<td><input type="checkbox" ${compareSelection.includes(a.id)?'checked':''} onchange="toggleCompareSelect('${a.id}')"></td>`:''}
       <td>${fmtBR(a.date)}</td>
       <td>${a.weight?`${a.weight} kg`:'—'}</td>
       <td>${r.leanMass?`${r.leanMass.toFixed(1)} kg`:'—'}</td>
@@ -1787,7 +1913,7 @@ function renderAvaliacao(student, readonly){
         ${readonly?'':`<button class="del-link" style="color:var(--blue);margin-right:10px;" onclick="openNewAssessmentModal('${a.id}')">editar</button><button class="del-link" onclick="deleteAssessment('${student.id}','${a.id}')">excluir</button>`}
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="6" style="color:var(--ink-soft);padding:20px 8px;">Nenhuma avaliação registrada ainda.</td></tr>`;
+  }).join('') || `<tr><td colspan="7" style="color:var(--ink-soft);padding:20px 8px;">Nenhuma avaliação registrada ainda.</td></tr>`;
 
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
@@ -1795,16 +1921,23 @@ function renderAvaliacao(student, readonly){
       ${readonly?'':`<button class="btn btn-primary" style="width:auto;padding:12px 20px;" onclick="openNewAssessmentModal()">+ Nova avaliação</button>`}
     </div>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Antropometria, dobras cutâneas (protocolo Pollock 7 dobras), perimetria e fotos de evolução.</p>
+    ${canCompare ? `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <button class="btn btn-primary" style="width:auto;padding:10px 18px;font-size:13px;" onclick="openCompareModal()">Comparar selecionadas${compareSelection.length?` (${compareSelection.length})`:''}</button>
+      ${compareSelection.length?`<button class="btn btn-secondary" style="width:auto;padding:10px 16px;font-size:13px;" onclick="clearCompareSelection()">Limpar seleção</button>`:''}
+      <span style="font-size:12px;color:var(--text-faint);">Marque 2 ou mais avaliações na tabela para comparar</span>
+    </div>` : ''}
     <div class="panel">
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Data</th><th>Peso</th><th>Massa magra</th><th>Massa gorda</th><th>% Gordura</th><th></th></tr></thead>
+          <thead><tr>${canCompare?'<th></th>':''}<th>Data</th><th>Peso</th><th>Massa magra</th><th>Massa gorda</th><th>% Gordura</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
     </div>
     ${renderAssessmentModal(student)}
     ${renderViewAssessmentModal(student, readonly)}
+    ${renderCompareModal(student)}
     ${renderPhotoViewer()}`;
 }
 
