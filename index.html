@@ -2119,7 +2119,7 @@ function renderAdminApp(){
     <div class="topbar">
       <div class="tb-left">
         <img src="${LOGO_URL}" alt="logo" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:8px;padding:3px;">
-        <div><div class="tb-title">Bruno Personal Trainer</div><div class="tb-sub">Administrador · BRUNOPERSONAL 27 998860938</div></div>
+        <div><div class="tb-title">Bruno Personal Trainer</div><div class="tb-sub">Administrador · BRUNOPERSONAL 27 998860938 · <a href="https://brunopersonal.com.br" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">brunopersonal.com.br</a></div></div>
       </div>
       <div class="tb-right">
         <button class="tb-btn" style="position:relative;" onclick="openInterestAlerts()">🔔 Interesses${DATA.interestAlerts.length ? ` <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;">${DATA.interestAlerts.length}</span>` : ''}</button>
@@ -2180,7 +2180,7 @@ function renderAlunoApp(){
     <div class="topbar">
       <div class="tb-left">
         <img src="${LOGO_URL}" alt="logo" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:8px;padding:3px;">
-        <div><div class="tb-title">${student.name}</div><div class="tb-sub">Área do aluno · Bruno Personal Trainer · 27 998860938</div></div>
+        <div><div class="tb-title">${student.name}</div><div class="tb-sub">Área do aluno · Bruno Personal Trainer · 27 998860938 · <a href="https://brunopersonal.com.br" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">brunopersonal.com.br</a></div></div>
       </div>
       <div class="tb-right">
         ${!appIsInstalled ? `<button class="tb-btn" onclick="installApp()">⊕ Instalar Aplicativo</button>` : ''}
