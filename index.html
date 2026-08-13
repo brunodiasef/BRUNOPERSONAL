@@ -263,6 +263,7 @@
     .modal{padding:20px;}
     .score-card{flex:1 1 100%;}
     .login-side h1{font-size:32px;}
+    .tb-sitelink{display:none;}
   }
 
   /* ---------- IMPRESSÃO ---------- */
@@ -347,6 +348,12 @@ function calcPollock7(sex, age, skinfolds){
   }
   const bf = (495/db) - 450;
   return { sum7, db, bf };
+}
+
+function addMonthsToDate(dateISO, months){
+  const d = parseISO(dateISO);
+  d.setMonth(d.getMonth() + Number(months));
+  return toISO(d);
 }
 
 function assessmentResults(a){
@@ -943,7 +950,8 @@ function openNewAssessmentModal(editId){
       height: existing.height || '',
       skinfolds: {...(existing.skinfolds||{})},
       perimeters: {...(existing.perimeters||{})},
-      notes: existing.notes || ''
+      notes: existing.notes || '',
+      reminderMonths: existing.reminderMonths || '0'
     };
   } else {
     let defaultAge = '';
@@ -954,7 +962,7 @@ function openNewAssessmentModal(editId){
       if(notYet) a--;
       defaultAge = a;
     }
-    modalAssessmentData = { date: toISO(today), sex:'M', age:defaultAge, weight:'', height:'', skinfolds:{}, perimeters:{}, notes:'' };
+    modalAssessmentData = { date: toISO(today), sex:'M', age:defaultAge, weight:'', height:'', skinfolds:{}, perimeters:{}, notes:'', reminderMonths:'0' };
   }
   showAssessmentModal = true;
   render();
@@ -1006,9 +1014,12 @@ function saveAssessment(){
   SKINFOLD_SITES.forEach(s=>{ skinfolds[s.key] = Number((d.skinfolds||{})[s.key])||null; });
   const perimeters = {};
   PERIMETER_SITES.forEach(p=>{ perimeters[p.key] = Number((d.perimeters||{})[p.key])||null; });
+  const reminderMonths = Number(d.reminderMonths)||0;
+  const reminderDate = reminderMonths>0 ? addMonthsToDate(d.date, reminderMonths) : null;
   const data = {
     date: d.date, sex: d.sex||'M', age: Number(d.age)||null, weight: Number(d.weight)||null, height: Number(d.height)||null,
-    skinfolds, perimeters, notes: (d.notes||'').trim(), photos:[...modalAssessmentPhotos]
+    skinfolds, perimeters, notes: (d.notes||'').trim(), photos:[...modalAssessmentPhotos],
+    reminderMonths, reminderDate
   };
   if(editingAssessmentId){
     const idx = student.assessments.findIndex(a=>a.id===editingAssessmentId);
@@ -2019,6 +2030,16 @@ function renderTreino(student, readonly){
 function renderAvaliacao(student, readonly){
   const sorted = [...(student.assessments||[])].sort((a,b)=>b.date.localeCompare(a.date));
   const canCompare = sorted.length>=2;
+  const mostRecent = sorted[0];
+  const reminderDue = mostRecent && mostRecent.reminderDate && toISO(today) >= mostRecent.reminderDate;
+  const reminderBanner = reminderDue ? `
+    <div style="background:var(--amber-dim);border:1.5px solid var(--amber);border-radius:10px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:20px;">🔔</span>
+      <div>
+        <div style="font-weight:700;color:var(--amber);font-size:13.5px;">Hora de refazer a avaliação física!</div>
+        <div style="font-size:12.5px;color:var(--text-soft);">Última avaliação em ${fmtBR(mostRecent.date)} — lembrete marcado para ${fmtBR(mostRecent.reminderDate)}.</div>
+      </div>
+    </div>` : '';
   const rows = sorted.map(a=>{
     const r = assessmentResults(a);
     return `<tr>
@@ -2036,6 +2057,7 @@ function renderAvaliacao(student, readonly){
   }).join('') || `<tr><td colspan="7" style="color:var(--ink-soft);padding:20px 8px;">Nenhuma avaliação registrada ainda.</td></tr>`;
 
   return `
+    ${reminderBanner}
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
       <h4 style="margin-bottom:0;text-transform:none;font-size:16px;color:var(--text);">Avaliações físicas</h4>
       ${readonly?'':`<button class="btn btn-primary" style="width:auto;padding:12px 20px;" onclick="openNewAssessmentModal()">+ Nova avaliação</button>`}
@@ -2122,6 +2144,15 @@ function renderAssessmentModal(student){
         <div class="form-section-title" style="color:var(--green);border-color:var(--green);background:var(--green-dim);">Perimetria</div>
         <div class="form-row" style="margin-bottom:14px;">${singleFields}</div>
         ${pairFields}
+
+        <div class="form-section-title" style="color:var(--blue);border-color:var(--blue);background:var(--blue-dim);">Lembrete</div>
+        <label class="field-label">Notificar para refazer a avaliação em:</label>
+        <select id="as-reminder" class="input" onchange="updateAssessmentField('reminderMonths', this.value)">
+          <option value="0" ${(!d.reminderMonths||d.reminderMonths==='0')?'selected':''}>Sem lembrete</option>
+          <option value="1" ${d.reminderMonths==='1'?'selected':''}>Daqui a 1 mês</option>
+          <option value="3" ${d.reminderMonths==='3'?'selected':''}>Daqui a 3 meses</option>
+          <option value="6" ${d.reminderMonths==='6'?'selected':''}>Daqui a 6 meses</option>
+        </select>
 
         <label class="field-label">Fotos</label>
         <div style="margin-bottom:10px;">${photosHtml}</div>
@@ -2373,7 +2404,7 @@ function renderAdminApp(){
     <div class="topbar">
       <div class="tb-left">
         <img src="${LOGO_URL}" alt="logo" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:8px;padding:3px;">
-        <div><div class="tb-title">Bruno Personal Trainer</div><div class="tb-sub">Administrador · BRUNOPERSONAL 27 998860938 · <a href="https://brunopersonal.com.br" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">brunopersonal.com.br</a></div></div>
+        <div style="min-width:0;overflow:hidden;"><div class="tb-title">Bruno Personal Trainer</div><div class="tb-sub">Administrador · <span class="tb-sitelink">BRUNOPERSONAL 27 998860938 · <a href="https://brunopersonal.com.br" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">brunopersonal.com.br</a></span></div></div>
       </div>
       <div class="tb-right">
         <button class="tb-btn" style="position:relative;" onclick="openInterestAlerts()">🔔 Interesses${DATA.interestAlerts.length ? ` <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;">${DATA.interestAlerts.length}</span>` : ''}</button>
@@ -2434,7 +2465,7 @@ function renderAlunoApp(){
     <div class="topbar">
       <div class="tb-left">
         <img src="${LOGO_URL}" alt="logo" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:8px;padding:3px;">
-        <div><div class="tb-title">${student.name}</div><div class="tb-sub">Área do aluno · Bruno Personal Trainer · 27 998860938 · <a href="https://brunopersonal.com.br" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">brunopersonal.com.br</a></div></div>
+        <div style="min-width:0;overflow:hidden;"><div class="tb-title">${student.name}</div><div class="tb-sub">Área do aluno · <span class="tb-sitelink">Bruno Personal Trainer · 27 998860938 · <a href="https://brunopersonal.com.br" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">brunopersonal.com.br</a></span></div></div>
       </div>
       <div class="tb-right">
         ${!appIsInstalled ? `<button class="tb-btn" onclick="installApp()">⊕ Instalar Aplicativo</button>` : ''}
