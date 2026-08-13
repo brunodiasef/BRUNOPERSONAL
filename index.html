@@ -451,7 +451,8 @@ async function pollForUpdates(){
     if(json && asString !== lastSavedSnapshot){
       DATA = normalizeData(json);
       lastSavedSnapshot = asString;
-      render();
+      // só redesenha a tela se já estiver logado — evita apagar o que a pessoa está digitando na tela de login
+      if(currentUser) render();
     }
   }catch(err){ /* silencioso */ }
 }
