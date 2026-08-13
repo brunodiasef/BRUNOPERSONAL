@@ -517,6 +517,7 @@ let showInterestAlertsModal = false;
 let showAssessmentModal = false;
 let editingAssessmentId = null;
 let modalAssessmentPhotos = [];
+let modalAssessmentData = {};
 let viewingAssessmentId = null;
 let viewingPhotoUrl = null;
 
@@ -911,6 +912,28 @@ function openNewAssessmentModal(editId){
   const student = findStudent(selectedStudentId);
   const existing = editId ? student.assessments.find(a=>a.id===editId) : null;
   modalAssessmentPhotos = existing ? [...(existing.photos||[])] : [];
+  if(existing){
+    modalAssessmentData = {
+      date: existing.date || toISO(today),
+      sex: existing.sex || 'M',
+      age: existing.age || '',
+      weight: existing.weight || '',
+      height: existing.height || '',
+      skinfolds: {...(existing.skinfolds||{})},
+      perimeters: {...(existing.perimeters||{})},
+      notes: existing.notes || ''
+    };
+  } else {
+    let defaultAge = '';
+    if(student.birthDate){
+      const bd = parseISO(student.birthDate);
+      let a = today.getFullYear() - bd.getFullYear();
+      const notYet = (today.getMonth()<bd.getMonth()) || (today.getMonth()===bd.getMonth() && today.getDate()<bd.getDate());
+      if(notYet) a--;
+      defaultAge = a;
+    }
+    modalAssessmentData = { date: toISO(today), sex:'M', age:defaultAge, weight:'', height:'', skinfolds:{}, perimeters:{}, notes:'' };
+  }
   showAssessmentModal = true;
   render();
 }
@@ -918,8 +941,12 @@ function closeNewAssessmentModal(){
   showAssessmentModal = false;
   editingAssessmentId = null;
   modalAssessmentPhotos = [];
+  modalAssessmentData = {};
   render();
 }
+function updateAssessmentField(field, value){ modalAssessmentData[field] = value; }
+function updateAssessmentSkinfold(key, value){ if(!modalAssessmentData.skinfolds) modalAssessmentData.skinfolds={}; modalAssessmentData.skinfolds[key] = value; }
+function updateAssessmentPerimeter(key, value){ if(!modalAssessmentData.perimeters) modalAssessmentData.perimeters={}; modalAssessmentData.perimeters[key] = value; }
 function handleAssessmentPhotoUpload(input){
   const files = Array.from(input.files || []);
   files.forEach(file=>{
@@ -951,18 +978,16 @@ function removeAssessmentPhoto(index){
 function saveAssessment(){
   const student = findStudent(selectedStudentId);
   if(!student) return;
-  const date = document.getElementById('as-date').value;
-  const sex = document.getElementById('as-sex').value;
-  const age = Number(document.getElementById('as-age').value)||null;
-  const weight = Number(document.getElementById('as-weight').value)||null;
-  const height = Number(document.getElementById('as-height').value)||null;
-  if(!date){ alert('Informe a data da avaliação.'); return; }
+  const d = modalAssessmentData;
+  if(!d.date){ alert('Informe a data da avaliação.'); return; }
   const skinfolds = {};
-  SKINFOLD_SITES.forEach(s=>{ skinfolds[s.key] = Number(document.getElementById(`as-sf-${s.key}`).value)||null; });
+  SKINFOLD_SITES.forEach(s=>{ skinfolds[s.key] = Number((d.skinfolds||{})[s.key])||null; });
   const perimeters = {};
-  PERIMETER_SITES.forEach(p=>{ perimeters[p.key] = Number(document.getElementById(`as-pm-${p.key}`).value)||null; });
-  const notes = document.getElementById('as-notes').value.trim();
-  const data = { date, sex, age, weight, height, skinfolds, perimeters, notes, photos:[...modalAssessmentPhotos] };
+  PERIMETER_SITES.forEach(p=>{ perimeters[p.key] = Number((d.perimeters||{})[p.key])||null; });
+  const data = {
+    date: d.date, sex: d.sex||'M', age: Number(d.age)||null, weight: Number(d.weight)||null, height: Number(d.height)||null,
+    skinfolds, perimeters, notes: (d.notes||'').trim(), photos:[...modalAssessmentPhotos]
+  };
   if(editingAssessmentId){
     const idx = student.assessments.findIndex(a=>a.id===editingAssessmentId);
     if(idx>=0) student.assessments[idx] = {...student.assessments[idx], ...data};
@@ -973,6 +998,7 @@ function saveAssessment(){
   showAssessmentModal = false;
   editingAssessmentId = null;
   modalAssessmentPhotos = [];
+  modalAssessmentData = {};
   render();
 }
 function deleteAssessment(studentId, assessmentId){
@@ -1673,7 +1699,7 @@ function renderTreino(student, readonly){
         return `<span class="muscle-badge">${m}</span>`;
       }).join('');
       const timeLbl = (entry.type==='comigo'||entry.type==='reposicao') && entry.time ? ` · ${entry.time}` : '';
-      bodyHtml = `<span class="day-tag ${entry.type}">${trainingTagLabel(entry.type)}${timeLbl}</span><div class="muscle-badges">${badges}</div>`;
+      bodyHtml = `<span class="day-tag ${entry.type}">${trainingTagLabel(entry.type)}${timeLbl}</span><div class="muscle-badges">${badges}</div>${entry.note?`<div style="font-size:10px;color:var(--text-faint);margin-top:4px;font-style:italic;line-height:1.3;">${entry.note}</div>`:''}`;
     } else if(sched.active){
       cls += ' scheduled-auto';
       bodyHtml = `<span class="day-tag comigo">Previsto · ${sched.time}</span><div class="day-empty-lbl">${readonly?'':'Clique para confirmar ou editar'}</div>`;
@@ -1752,9 +1778,9 @@ function renderAvaliacao(student, readonly){
     return `<tr>
       <td>${fmtBR(a.date)}</td>
       <td>${a.weight?`${a.weight} kg`:'—'}</td>
-      <td>${r.imc?r.imc.toFixed(1):'—'}</td>
+      <td>${r.leanMass?`${r.leanMass.toFixed(1)} kg`:'—'}</td>
+      <td>${r.fatMass?`${r.fatMass.toFixed(1)} kg`:'—'}</td>
       <td>${r.pollock?`${r.pollock.bf.toFixed(1)}%`:'—'}</td>
-      <td>${(a.photos&&a.photos.length)?`${a.photos.length} foto${a.photos.length===1?'':'s'}`:'—'}</td>
       <td style="white-space:nowrap;">
         <button class="del-link" style="color:var(--blue);margin-right:10px;" onclick="viewAssessment('${a.id}')">ver</button>
         ${readonly?'':`<button class="del-link" style="color:var(--blue);margin-right:10px;" onclick="openNewAssessmentModal('${a.id}')">editar</button><button class="del-link" onclick="deleteAssessment('${student.id}','${a.id}')">excluir</button>`}
@@ -1771,7 +1797,7 @@ function renderAvaliacao(student, readonly){
     <div class="panel">
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Data</th><th>Peso</th><th>IMC</th><th>% Gordura</th><th>Fotos</th><th></th></tr></thead>
+          <thead><tr><th>Data</th><th>Peso</th><th>Massa magra</th><th>Massa gorda</th><th>% Gordura</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -1784,34 +1810,26 @@ function renderAvaliacao(student, readonly){
 function renderAssessmentModal(student){
   if(!showAssessmentModal) return '';
   const editing = editingAssessmentId ? student.assessments.find(a=>a.id===editingAssessmentId) : null;
-  const sf = editing ? (editing.skinfolds||{}) : {};
-  const pm = editing ? (editing.perimeters||{}) : {};
-  let defaultAge = '';
-  if(editing && editing.age) defaultAge = editing.age;
-  else if(!editing && student.birthDate){
-    const bd = parseISO(student.birthDate);
-    let a = today.getFullYear() - bd.getFullYear();
-    const notYet = (today.getMonth()<bd.getMonth()) || (today.getMonth()===bd.getMonth() && today.getDate()<bd.getDate());
-    if(notYet) a--;
-    defaultAge = a;
-  }
+  const d = modalAssessmentData || {};
+  const sf = d.skinfolds || {};
+  const pm = d.perimeters || {};
   const skinfoldFields = SKINFOLD_SITES.map(s=>`
-    <div class="form-group"><label class="field-label">${s.label} (mm)</label><input id="as-sf-${s.key}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${sf[s.key]||''}"></div>
+    <div class="form-group"><label class="field-label">${s.label} (mm)</label><input id="as-sf-${s.key}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${sf[s.key]||''}" oninput="updateAssessmentSkinfold('${s.key}', this.value)"></div>
   `).join('');
   const singleFields = PERIMETER_SINGLE.map(p=>`
-    <div class="form-group"><label class="field-label">${p.label} (cm)</label><input id="as-pm-${p.key}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${pm[p.key]||''}"></div>
+    <div class="form-group"><label class="field-label">${p.label} (cm)</label><input id="as-pm-${p.key}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${pm[p.key]||''}" oninput="updateAssessmentPerimeter('${p.key}', this.value)"></div>
   `).join('');
   const pairFields = PERIMETER_PAIRS.map(pr=>`
     <div style="margin-bottom:14px;">
       <label class="field-label" style="margin-bottom:6px;">${pr.label} (cm)</label>
       <div class="pair-row">
         <div class="pair-item">
-          <div class="pair-item-label">Direita</div>
-          <input id="as-pm-${pr.dKey}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${pm[pr.dKey]||''}">
+          <div class="pair-item-label">Esquerda</div>
+          <input id="as-pm-${pr.eKey}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${pm[pr.eKey]||''}" oninput="updateAssessmentPerimeter('${pr.eKey}', this.value)">
         </div>
         <div class="pair-item">
-          <div class="pair-item-label">Esquerda</div>
-          <input id="as-pm-${pr.eKey}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${pm[pr.eKey]||''}">
+          <div class="pair-item-label">Direita</div>
+          <input id="as-pm-${pr.dKey}" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${pm[pr.dKey]||''}" oninput="updateAssessmentPerimeter('${pr.dKey}', this.value)">
         </div>
       </div>
     </div>
@@ -1830,18 +1848,18 @@ function renderAssessmentModal(student){
 
         <div class="form-section-title" style="color:var(--blue);border-color:var(--blue);background:var(--blue-dim);">Dados gerais</div>
         <div class="form-row" style="margin-bottom:8px;">
-          <div class="form-group"><label class="field-label">Data</label><input id="as-date" type="date" class="input" style="margin-bottom:0;" value="${editing?editing.date:toISO(today)}"></div>
+          <div class="form-group"><label class="field-label">Data</label><input id="as-date" type="date" class="input" style="margin-bottom:0;" value="${d.date||toISO(today)}" oninput="updateAssessmentField('date', this.value)"></div>
           <div class="form-group"><label class="field-label">Sexo</label>
-            <select id="as-sex" class="input" style="margin-bottom:0;">
-              <option value="M" ${editing&&editing.sex==='M'?'selected':''}>Masculino</option>
-              <option value="F" ${editing&&editing.sex==='F'?'selected':''}>Feminino</option>
+            <select id="as-sex" class="input" style="margin-bottom:0;" onchange="updateAssessmentField('sex', this.value)">
+              <option value="M" ${d.sex==='M'?'selected':''}>Masculino</option>
+              <option value="F" ${d.sex==='F'?'selected':''}>Feminino</option>
             </select>
           </div>
-          <div class="form-group"><label class="field-label">Idade</label><input id="as-age" type="number" inputmode="numeric" class="input" style="margin-bottom:0;" value="${defaultAge}"></div>
+          <div class="form-group"><label class="field-label">Idade</label><input id="as-age" type="number" inputmode="numeric" class="input" style="margin-bottom:0;" value="${d.age||''}" oninput="updateAssessmentField('age', this.value)"></div>
         </div>
         <div class="form-row" style="margin-bottom:8px;">
-          <div class="form-group"><label class="field-label">Peso (kg)</label><input id="as-weight" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${editing?(editing.weight||''):''}"></div>
-          <div class="form-group"><label class="field-label">Altura (cm)</label><input id="as-height" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${editing?(editing.height||''):''}"></div>
+          <div class="form-group"><label class="field-label">Peso (kg)</label><input id="as-weight" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${d.weight||''}" oninput="updateAssessmentField('weight', this.value)"></div>
+          <div class="form-group"><label class="field-label">Altura (cm)</label><input id="as-height" type="number" step="0.1" inputmode="decimal" class="input" style="margin-bottom:0;" value="${d.height||''}" oninput="updateAssessmentField('height', this.value)"></div>
         </div>
 
         <div class="form-section-title" style="color:var(--amber);border-color:var(--amber);background:var(--amber-dim);">Dobras cutâneas — Pollock 7 dobras</div>
@@ -1856,7 +1874,7 @@ function renderAssessmentModal(student){
         <input type="file" accept="image/*" multiple id="as-photo-input" style="margin-bottom:20px;font-size:12.5px;width:100%;" onchange="handleAssessmentPhotoUpload(this)">
 
         <label class="field-label">Observações</label>
-        <textarea id="as-notes" class="input" style="min-height:70px;resize:vertical;font-family:inherit;margin-bottom:4px;">${editing?(editing.notes||''):''}</textarea>
+        <textarea id="as-notes" class="input" style="min-height:70px;resize:vertical;font-family:inherit;margin-bottom:4px;" oninput="updateAssessmentField('notes', this.value)">${d.notes||''}</textarea>
 
         <div class="modal-actions" style="margin-top:16px;">
           <button class="btn btn-secondary" onclick="closeNewAssessmentModal()">Cancelar</button>
@@ -1868,13 +1886,11 @@ function renderAssessmentModal(student){
 
 function renderPhotoViewer(){
   if(!viewingPhotoUrl) return '';
+  const positions = [16.667, 33.333, 50, 66.667, 83.333];
+  const colorFor = p => p===50 ? 'rgba(255,60,60,0.9)' : 'rgba(34,211,238,0.75)';
   const lines = [
-    `<div class="grid-line gl-v gl-v-center gl-center" style="left:50%;"></div>`,
-    `<div class="grid-line gl-h gl-h-center gl-center" style="top:50%;"></div>`,
-    `<div class="grid-line gl-v" style="left:25%;"></div>`,
-    `<div class="grid-line gl-v" style="left:75%;"></div>`,
-    `<div class="grid-line gl-h" style="top:25%;"></div>`,
-    `<div class="grid-line gl-h" style="top:75%;"></div>`
+    ...positions.map(p=>`<div class="grid-line gl-v" style="left:${p}%;background:${colorFor(p)};"></div>`),
+    ...positions.map(p=>`<div class="grid-line gl-h" style="top:${p}%;background:${colorFor(p)};"></div>`)
   ].join('');
   return `
     <div class="overlay" style="z-index:70;" onclick="if(event.target===this)closePhotoViewer()">
@@ -1901,8 +1917,8 @@ function renderViewAssessmentModal(student, readonly){
     return `<div style="margin-bottom:10px;">
       <div class="pair-item-label" style="margin-bottom:4px;">${pr.label}</div>
       <div class="pair-row" style="margin-bottom:0;">
-        <div class="stat-row" style="border-bottom:none;padding:4px 0;"><span class="lbl">Direita</span><span class="val" style="font-size:14px;">${dv}</span></div>
         <div class="stat-row" style="border-bottom:none;padding:4px 0;"><span class="lbl">Esquerda</span><span class="val" style="font-size:14px;">${ev}</span></div>
+        <div class="stat-row" style="border-bottom:none;padding:4px 0;"><span class="lbl">Direita</span><span class="val" style="font-size:14px;">${dv}</span></div>
       </div>
     </div>`;
   }).join('');
