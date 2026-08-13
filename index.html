@@ -270,7 +270,8 @@
   .print-sheet{background:#fff;color:#111;font-family:'Inter',sans-serif;padding:20px;}
   .print-sheet h1{font-family:'Oswald',sans-serif;font-size:22px;color:#111;margin-bottom:2px;}
   .print-sheet h2{font-family:'Oswald',sans-serif;font-size:15px;color:#2851E3;margin:18px 0 8px;padding-bottom:4px;border-bottom:2px solid #2851E3;text-transform:uppercase;}
-  .print-sheet p{color:#444;font-size:12.5px;margin:0 0 4px;}
+  .print-sheet p{color:#000;font-size:12.5px;margin:0 0 4px;}
+  #print-area svg text{fill:#000 !important;}
   .print-sheet table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px;}
   .print-sheet th,.print-sheet td{border:1px solid #ccc;padding:6px 8px;text-align:left;}
   .print-sheet th{background:#f0f0f0;}
@@ -1049,24 +1050,28 @@ function openCompareModal(){
 function closeCompareModal(){ showCompareModal = false; render(); }
 function clearCompareSelection(){ compareSelection = []; render(); }
 
-function renderMiniLineChart(dates, values, color, unit){
-  const w=560, h=150, padL=8, padR=8, padT=18, padB=26;
-  const n = values.length;
+function renderMiniBarChart(dates, values, color, unit){
+  const w=560, h=150, padSide=8, padT=20, padB=26;
+  const chartH = h-padT-padB;
   const valid = values.map((v,i)=>({v,i})).filter(o=>o.v!=null && !isNaN(o.v));
   if(valid.length<2) return `<p style="color:var(--text-faint);font-size:12px;text-align:center;padding:30px 0;">Dados insuficientes para o gráfico.</p>`;
   const vals = valid.map(o=>o.v);
-  const min = Math.min(...vals), max = Math.max(...vals);
+  const max = Math.max(...vals);
+  const min = Math.min(0, Math.min(...vals));
   const range = (max-min) || 1;
-  const chartW = w-padL-padR, chartH = h-padT-padB;
-  const x = i => n===1 ? padL+chartW/2 : padL + (i/(n-1))*chartW;
-  const y = v => padT + chartH - ((v-min)/range)*chartH;
-  const points = valid.map(o=>`${x(o.i).toFixed(1)},${y(o.v).toFixed(1)}`).join(' ');
-  const dots = valid.map(o=>`<circle cx="${x(o.i).toFixed(1)}" cy="${y(o.v).toFixed(1)}" r="3.5" fill="${color}"></circle><text x="${x(o.i).toFixed(1)}" y="${(y(o.v)-9).toFixed(1)}" font-size="10" fill="${color}" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700">${o.v.toFixed(1)}${unit||''}</text>`).join('');
-  const xLabels = dates.map((d,i)=>`<text x="${x(i).toFixed(1)}" y="${h-6}" font-size="9" fill="#6A6D7C" text-anchor="middle" font-family="Inter,sans-serif">${fmtBR(d).slice(0,5)}</text>`).join('');
-  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:130px;display:block;overflow:visible;">
-    <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2"></polyline>
-    ${dots}${xLabels}
-  </svg>`;
+  const n = valid.length;
+  const gap = 12;
+  const barW = (w-padSide*2)/n - gap;
+  let bars = '';
+  valid.forEach((o,idx)=>{
+    const barH = Math.max(((o.v-min)/range)*chartH, 2);
+    const x = padSide + idx*(barW+gap);
+    const y = padT + (chartH-barH);
+    bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="3" fill="${color}"></rect>`;
+    bars += `<text x="${(x+barW/2).toFixed(1)}" y="${(y-6).toFixed(1)}" font-size="10" fill="${color}" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700">${o.v.toFixed(1)}${unit||''}</text>`;
+    bars += `<text x="${(x+barW/2).toFixed(1)}" y="${h-6}" font-size="9" fill="#6A6D7C" text-anchor="middle" font-family="Inter,sans-serif">${fmtBR(dates[o.i]).slice(0,5)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:130px;display:block;overflow:visible;">${bars}</svg>`;
 }
 
 function getViewedStudent(){
@@ -1141,11 +1146,19 @@ function printComparison(){
       metricRowPrint(`${pr.label} (direita)`, selected.map(a=>(a.perimeters||{})[pr.dKey]))
     ])
   ].join('');
+  const printCharts = [
+    {label:'Peso (kg)', color:'#2851E3', vals: selected.map(a=>a.weight)},
+    {label:'% Gordura', color:'#c98107', vals: results.map(r=>r.pollock?r.pollock.bf:null)},
+    {label:'Massa magra (kg)', color:'#2BAE66', vals: results.map(r=>r.leanMass)},
+    {label:'Massa gorda (kg)', color:'#C0392B', vals: results.map(r=>r.fatMass)}
+  ].map(c=>`<h2>${c.label}</h2>${renderMiniBarChart(dates, c.vals, c.color)}`).join('');
   const html = `
     <div class="print-sheet">
       <h1>Bruno Personal Trainer</h1>
       <p>Comparação de avaliações — ${student.name}</p>
       <p>${selected.length} avaliações, de ${fmtBR(dates[0])} até ${fmtBR(dates[dates.length-1])}</p>
+      <h2>Evolução</h2>
+      ${printCharts}
       <h2>Resumo geral</h2>
       <table><thead><tr><th></th>${dateHeaders}</tr></thead><tbody>${generalRows}</tbody></table>
       <h2>Dobras cutâneas</h2>
@@ -1173,7 +1186,7 @@ function renderCompareModal(student){
   ].map(c=>`
     <div class="panel" style="margin-bottom:16px;">
       <h4 style="margin-bottom:2px;">${c.label}</h4>
-      ${renderMiniLineChart(dates, c.vals, c.color)}
+      ${renderMiniBarChart(dates, c.vals, c.color)}
     </div>
   `).join('');
 
