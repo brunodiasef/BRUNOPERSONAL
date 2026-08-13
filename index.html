@@ -264,10 +264,28 @@
     .score-card{flex:1 1 100%;}
     .login-side h1{font-size:32px;}
   }
+
+  /* ---------- IMPRESSÃO ---------- */
+  #print-area{display:none;}
+  .print-sheet{background:#fff;color:#111;font-family:'Inter',sans-serif;padding:20px;}
+  .print-sheet h1{font-family:'Oswald',sans-serif;font-size:22px;color:#111;margin-bottom:2px;}
+  .print-sheet h2{font-family:'Oswald',sans-serif;font-size:15px;color:#2851E3;margin:18px 0 8px;padding-bottom:4px;border-bottom:2px solid #2851E3;text-transform:uppercase;}
+  .print-sheet p{color:#444;font-size:12.5px;margin:0 0 4px;}
+  .print-sheet table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px;}
+  .print-sheet th,.print-sheet td{border:1px solid #ccc;padding:6px 8px;text-align:left;}
+  .print-sheet th{background:#f0f0f0;}
+  .print-sheet img{width:130px;height:130px;object-fit:cover;border-radius:6px;border:1px solid #ccc;margin:0 8px 8px 0;}
+  .print-sheet .print-photos{display:flex;flex-wrap:wrap;margin-bottom:12px;}
+  @media print{
+    body *{visibility:hidden;}
+    #print-area, #print-area *{visibility:visible;}
+    #print-area{display:block;position:absolute;top:0;left:0;width:100%;}
+  }
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="print-area"></div>
 
 <script>
 /* ============ DADOS ============ */
@@ -1051,6 +1069,94 @@ function renderMiniLineChart(dates, values, color, unit){
   </svg>`;
 }
 
+function getViewedStudent(){
+  if(currentUser && currentUser.role==='admin') return findStudent(selectedStudentId);
+  if(currentUser && currentUser.role==='aluno') return findStudent(currentUser.studentId);
+  return null;
+}
+
+function printAssessment(id){
+  const student = getViewedStudent();
+  if(!student) return;
+  const a = (student.assessments||[]).find(x=>x.id===id);
+  if(!a) return;
+  const r = assessmentResults(a);
+  const skinfoldRows = SKINFOLD_SITES.map(s=>`<tr><td>${s.label}</td><td>${(a.skinfolds&&a.skinfolds[s.key])?a.skinfolds[s.key]+' mm':'—'}</td></tr>`).join('');
+  const perimRows = [
+    ...PERIMETER_SINGLE.map(p=>`<tr><td>${p.label}</td><td>${(a.perimeters&&a.perimeters[p.key])?a.perimeters[p.key]+' cm':'—'}</td></tr>`),
+    ...PERIMETER_PAIRS.flatMap(pr=>[
+      `<tr><td>${pr.label} (esquerda)</td><td>${(a.perimeters&&a.perimeters[pr.eKey])?a.perimeters[pr.eKey]+' cm':'—'}</td></tr>`,
+      `<tr><td>${pr.label} (direita)</td><td>${(a.perimeters&&a.perimeters[pr.dKey])?a.perimeters[pr.dKey]+' cm':'—'}</td></tr>`
+    ])
+  ].join('');
+  const photosHtml = (a.photos||[]).map(p=>`<img src="${p}">`).join('') || '<p>Nenhuma foto.</p>';
+  const html = `
+    <div class="print-sheet">
+      <h1>Bruno Personal Trainer</h1>
+      <p>Avaliação física de ${student.name} — ${fmtBR(a.date)}</p>
+      <p>${a.sex==='F'?'Feminino':'Masculino'}${a.age?` · ${a.age} anos`:''}</p>
+      <h2>Resumo</h2>
+      <table>
+        <tr><th>Peso</th><td>${a.weight?a.weight+' kg':'—'}</td><th>Altura</th><td>${a.height?a.height+' cm':'—'}</td></tr>
+        <tr><th>IMC</th><td>${r.imc?r.imc.toFixed(1):'—'}</td><th>% Gordura</th><td>${r.pollock?r.pollock.bf.toFixed(1)+'%':'—'}</td></tr>
+        <tr><th>Massa magra</th><td>${r.leanMass?r.leanMass.toFixed(1)+' kg':'—'}</td><th>Massa gorda</th><td>${r.fatMass?r.fatMass.toFixed(1)+' kg':'—'}</td></tr>
+      </table>
+      <h2>Dobras cutâneas (Pollock 7 dobras)</h2>
+      <table><tbody>${skinfoldRows}</tbody></table>
+      <h2>Perimetria</h2>
+      <table><tbody>${perimRows}</tbody></table>
+      ${a.notes?`<h2>Observações</h2><p>${a.notes}</p>`:''}
+      <h2>Fotos</h2>
+      <div class="print-photos">${photosHtml}</div>
+    </div>`;
+  document.getElementById('print-area').innerHTML = html;
+  setTimeout(()=>window.print(), 150);
+}
+
+function printComparison(){
+  const student = getViewedStudent();
+  if(!student) return;
+  const selected = (student.assessments||[]).filter(a=>compareSelection.includes(a.id)).sort((a,b)=>a.date.localeCompare(b.date));
+  if(selected.length<2) return;
+  const dates = selected.map(a=>a.date);
+  const results = selected.map(a=>assessmentResults(a));
+  function metricRowPrint(label, vals, unit){
+    const cells = vals.map(v=> v!=null && !isNaN(v) ? `<td>${v.toFixed(1)}${unit||''}</td>` : `<td>—</td>`).join('');
+    return `<tr><td>${label}</td>${cells}</tr>`;
+  }
+  const dateHeaders = dates.map(d=>`<th>${fmtBR(d)}</th>`).join('');
+  const generalRows = [
+    metricRowPrint('Peso (kg)', selected.map(a=>a.weight)),
+    metricRowPrint('IMC', results.map(r=>r.imc)),
+    metricRowPrint('% Gordura', results.map(r=>r.pollock?r.pollock.bf:null)),
+    metricRowPrint('Massa magra (kg)', results.map(r=>r.leanMass)),
+    metricRowPrint('Massa gorda (kg)', results.map(r=>r.fatMass)),
+    metricRowPrint('Soma 7 dobras (mm)', results.map(r=>r.pollock?r.pollock.sum7:null))
+  ].join('');
+  const skinfoldRows = SKINFOLD_SITES.map(s=>metricRowPrint(s.label, selected.map(a=>(a.skinfolds||{})[s.key]))).join('');
+  const perimeterRows = [
+    ...PERIMETER_SINGLE.map(p=>metricRowPrint(p.label, selected.map(a=>(a.perimeters||{})[p.key]))),
+    ...PERIMETER_PAIRS.flatMap(pr=>[
+      metricRowPrint(`${pr.label} (esquerda)`, selected.map(a=>(a.perimeters||{})[pr.eKey])),
+      metricRowPrint(`${pr.label} (direita)`, selected.map(a=>(a.perimeters||{})[pr.dKey]))
+    ])
+  ].join('');
+  const html = `
+    <div class="print-sheet">
+      <h1>Bruno Personal Trainer</h1>
+      <p>Comparação de avaliações — ${student.name}</p>
+      <p>${selected.length} avaliações, de ${fmtBR(dates[0])} até ${fmtBR(dates[dates.length-1])}</p>
+      <h2>Resumo geral</h2>
+      <table><thead><tr><th></th>${dateHeaders}</tr></thead><tbody>${generalRows}</tbody></table>
+      <h2>Dobras cutâneas</h2>
+      <table><thead><tr><th></th>${dateHeaders}</tr></thead><tbody>${skinfoldRows}</tbody></table>
+      <h2>Perimetria</h2>
+      <table><thead><tr><th></th>${dateHeaders}</tr></thead><tbody>${perimeterRows}</tbody></table>
+    </div>`;
+  document.getElementById('print-area').innerHTML = html;
+  setTimeout(()=>window.print(), 150);
+}
+
 function renderCompareModal(student){
   if(!showCompareModal) return '';
   const selected = (student.assessments||[]).filter(a=>compareSelection.includes(a.id)).sort((a,b)=>a.date.localeCompare(b.date));
@@ -1133,6 +1239,7 @@ function renderCompareModal(student){
         </div>
 
         <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="printComparison()">🖨 Imprimir comparação</button>
           <button class="btn btn-primary" onclick="closeCompareModal()">Fechar</button>
         </div>
       </div>
@@ -2086,6 +2193,7 @@ function renderViewAssessmentModal(student, readonly){
 
         <div class="modal-actions">
           ${readonly?'':`<button class="btn btn-danger" onclick="deleteAssessment('${student.id}','${a.id}')">Excluir</button><button class="btn btn-secondary" onclick="closeViewAssessment(); openNewAssessmentModal('${a.id}');">Editar</button>`}
+          <button class="btn btn-secondary" onclick="printAssessment('${a.id}')">🖨 Imprimir</button>
           <button class="btn btn-primary" onclick="closeViewAssessment()">Fechar</button>
         </div>
       </div>
