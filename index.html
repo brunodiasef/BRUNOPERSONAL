@@ -551,7 +551,8 @@ let viewingPhotoUrl = null;
 let compareSelection = [];
 let showCompareModal = false;
 
-const today = new Date();
+let today = new Date();
+
 function pad(n){ return String(n).padStart(2,'0'); }
 function toISO(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 function parseISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
@@ -2576,6 +2577,12 @@ if('serviceWorker' in navigator){
   render();
   setInterval(pollForUpdates, 4000);
   setInterval(checkTrainingReminders, 60000);
+  setInterval(()=>{
+    const now = new Date();
+    const changedDay = now.getDate()!==today.getDate() || now.getMonth()!==today.getMonth() || now.getFullYear()!==today.getFullYear();
+    today = now;
+    if(changedDay && currentUser) render();
+  }, 60000);
   checkTrainingReminders();
 })();
 </script>
