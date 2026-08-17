@@ -627,10 +627,18 @@ function hasPendingPayment(student){
     const hasRecord = student.payments.some(p=>p.date.startsWith(monthKey));
     return !hasRecord;
   } else {
-    if(today.getDay() !== 6) return false; // só aparece no sábado
-    const isoSet = getWeekDates(0).map(d=>toISO(d));
-    const paidThisWeek = student.payments.some(p=>isoSet.includes(p.date));
-    return !paidThisWeek;
+    // semanal: atrasado quando já se passaram 7 dias ou mais desde o último pagamento
+    // (permanece marcado todos os dias até um novo pagamento ser registrado, não só no sábado)
+    if(!student.payments || student.payments.length===0){
+      // nunca pagou: considera a partir de 7 dias do início da semana atual
+      const monday = getWeekDates(0)[0];
+      const diffDays = Math.floor((today - monday) / 86400000);
+      return diffDays >= 6; // chega no sábado da 1ª semana
+    }
+    const lastPayment = [...student.payments].sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const lastDate = parseISO(lastPayment.date);
+    const diffDays = Math.floor((today - lastDate) / 86400000);
+    return diffDays >= 7;
   }
 }
 
