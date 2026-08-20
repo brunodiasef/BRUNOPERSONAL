@@ -487,6 +487,7 @@ function normalizeData(data){
     if(typeof s.whatsapp !== 'string') s.whatsapp = '';
     if(typeof s.birthDate !== 'string') s.birthDate = '';
     if(typeof s.suspended !== 'boolean') s.suspended = false;
+    if(typeof s.lastPaidMonth !== 'string') s.lastPaidMonth = '';
     if(!Array.isArray(s.fcmTokens)) s.fcmTokens = [];
     if(!Array.isArray(s.assessments)) s.assessments = s.assessments ? Object.values(s.assessments) : [];
     if(typeof s.secAnswer !== 'string') s.secAnswer = '';
@@ -625,6 +626,11 @@ function pad(n){ return String(n).padStart(2,'0'); }
 function toISO(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 function parseISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 function fmtBR(iso){ const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
+function fmtMonthBR(monthKey){
+  const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const [y,m] = monthKey.split('-').map(Number);
+  return `${MONTHS[m-1]||m}/${y}`;
+}
 function money(v){ return 'R$ ' + Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
 let finMonth = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
@@ -722,6 +728,49 @@ function weeklyOwedByAttendance(student, throughDate){
   }
   const totalDiscount = (student.payments||[]).reduce((s,p)=>s+Number(p.discount||0), 0);
   return Math.max(0, totalOwed - totalDiscount);
+}
+
+function lastPaidOffWeek(student, throughDate){
+  // Percorre semana por semana (mais antiga pra mais nova) somando o valor devido
+  // (mesma lógica de weeklyOwedByAttendance), e descobre até qual semana o total
+  // pago já cobre. Retorna a segunda e a sexta-feira dessa última semana quitada.
+  const billable = t => t.type==='comigo' || t.type==='reposicao';
+  const trainingDates = (student.trainings||[]).filter(billable).map(t=>t.date).filter(Boolean);
+  const paymentDates = (student.payments||[]).map(p=>p.date).filter(Boolean);
+  const allDates = [...trainingDates, ...paymentDates].sort();
+  if(allDates.length===0) return null;
+  const startDate = parseISO(allDates[0]);
+  let weekStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const dow = weekStart.getDay();
+  const diffToMonday = (dow===0) ? -6 : (1-dow);
+  weekStart.setDate(weekStart.getDate()+diffToMonday);
+
+  const totalPaid = (student.payments||[]).reduce((s,p)=>s+Number(p.value||0), 0);
+  let discountRemaining = (student.payments||[]).reduce((s,p)=>s+Number(p.discount||0), 0);
+  let cumulativeOwed = 0;
+  let lastPaidMonday = null;
+
+  while(weekStart <= throughDate){
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate()+5);
+    if(weekEnd > throughDate) break;
+    const wStartISO = toISO(weekStart), wEndISO = toISO(weekEnd);
+    const sessionsThisWeek = trainingDates.filter(d=>d>=wStartISO && d<=wEndISO).length;
+    let weekOwed = sessionsThisWeek * Number(student.paymentValue||0);
+    const applied = Math.min(discountRemaining, weekOwed);
+    weekOwed -= applied;
+    discountRemaining -= applied;
+    cumulativeOwed += weekOwed;
+    if(totalPaid >= cumulativeOwed - 0.01){
+      lastPaidMonday = new Date(weekStart);
+    } else {
+      break;
+    }
+    weekStart.setDate(weekStart.getDate()+7);
+  }
+  if(!lastPaidMonday) return null;
+  const friday = new Date(lastPaidMonday);
+  friday.setDate(friday.getDate()+4);
+  return { monday: lastPaidMonday, friday };
 }
 
 function hasPendingPayment(student){
@@ -1040,6 +1089,14 @@ function saveProfile(id){
 }
 
 /* ============ AÇÕES: PAGAMENTOS ============ */
+function updateLastPaidMonth(studentId, monthValue){
+  const s = findStudent(studentId);
+  if(!s) return;
+  s.lastPaidMonth = monthValue;
+  saveData();
+  render();
+}
+
 function addPayment(id){
   const date=document.getElementById('pay-date').value;
   const value=Number(document.getElementById('pay-value').value);
@@ -2040,6 +2097,27 @@ function renderFinanceiro(student, readonly){
       </div>
       <p style="font-size:11.5px;color:var(--text-faint);margin-top:10px;margin-bottom:0;">O desconto abate do valor que o sistema considera "devido" naquela semana — assim ele não aparece como pendência por engano.</p>
     </div>`}
+
+    ${student.paymentType==='semanal' ? (()=>{
+      const lastPaid = lastPaidOffWeek(student, today);
+      return `
+    <div class="panel">
+      <h4>Última semana quitada</h4>
+      ${lastPaid
+        ? `<p style="font-size:14px;color:var(--text);margin:0;">De <b>${fmtBR(toISO(lastPaid.monday))}</b> (segunda) até <b>${fmtBR(toISO(lastPaid.friday))}</b> (sexta)</p>`
+        : `<p style="font-size:13px;color:var(--text-faint);margin:0;">Nenhuma semana totalmente quitada ainda.</p>`}
+      <p style="font-size:11.5px;color:var(--text-faint);margin-top:8px;margin-bottom:0;">Baseado nas aulas realmente dadas em cada semana já encerrada — não na data em que o pagamento foi feito.</p>
+    </div>`;
+    })() : ''}
+
+    ${student.paymentType==='mensal' ? `
+    <div class="panel">
+      <h4>Último mês quitado</h4>
+      ${readonly
+        ? `<p style="font-size:14px;color:var(--text);margin:0;">${student.lastPaidMonth ? fmtMonthBR(student.lastPaidMonth) : 'Ainda não informado.'}</p>`
+        : `<input type="month" class="input" style="margin-bottom:0;max-width:220px;" value="${student.lastPaidMonth||''}" onchange="updateLastPaidMonth('${student.id}', this.value)">`}
+      <p style="font-size:11.5px;color:var(--text-faint);margin-top:8px;margin-bottom:0;">Esse campo é preenchido manualmente por você — o sistema não calcula sozinho pro plano mensal.</p>
+    </div>` : ''}
 
     <div class="panel">
       <h4>Histórico de pagamentos</h4>
