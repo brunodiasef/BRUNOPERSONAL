@@ -771,11 +771,26 @@ function renderYearlyRevenueChart(students, year){
 function chooseRole(role){ loginRole=role; loginError=null; render(); }
 function backToRoleSelect(){ loginRole=null; loginError=null; render(); }
 
+const SESSION_KEY = 'bp_session_v1';
+function saveSession(){
+  try{ localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser)); }catch(err){ /* silencioso */ }
+}
+function clearSession(){
+  try{ localStorage.removeItem(SESSION_KEY); }catch(err){ /* silencioso */ }
+}
+function restoreSession(){
+  try{
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(err){ return null; }
+}
+
 function doAdminLogin(){
   const pass = document.getElementById('login-pass').value;
   if(pass === DATA.adminPassword){
     currentUser = {role:'admin'};
     loginRole=null; loginError=null;
+    saveSession();
     render();
   } else { loginError = 'Senha incorreta.'; render(); }
 }
@@ -787,11 +802,12 @@ function doAlunoLogin(){
     currentUser = {role:'aluno', studentId:student.id};
     activeTab='financeiro'; weekOffset=0;
     loginRole=null; loginError=null;
+    saveSession();
     render();
     checkTrainingReminders();
   } else { loginError = 'Usuário ou senha incorretos.'; render(); }
 }
-function logout(){ currentUser=null; loginRole=null; selectedStudentId=null; loginError=null; render(); }
+function logout(){ currentUser=null; loginRole=null; selectedStudentId=null; loginError=null; clearSession(); render(); }
 
 function openRecoverFlow(){
   loginRole='recover'; recoverStep=1; recoverUsername=''; recoverStudentId=null; recoverError=null;
@@ -2697,7 +2713,18 @@ if('serviceWorker' in navigator){
   renderLoadingScreen();
   await loadDataAsync();
   if(storageUnavailable){ renderStorageErrorScreen(); return; }
+  const restored = restoreSession();
+  if(restored){
+    if(restored.role==='admin'){
+      currentUser = restored;
+    } else if(restored.role==='aluno' && findStudent(restored.studentId)){
+      currentUser = restored;
+    } else {
+      clearSession(); // sessão de aluno que não existe mais (ex: excluído)
+    }
+  }
   render();
+  if(currentUser && currentUser.role==='aluno') checkTrainingReminders();
   setInterval(pollForUpdates, 4000);
   setInterval(checkTrainingReminders, 60000);
   setInterval(()=>{
