@@ -79,6 +79,10 @@
   .role-icon{width:38px;height:38px;border-radius:var(--radius-sm);background:var(--bg);color:var(--amber);display:flex;align-items:center;justify-content:center;font-family:'Oswald';font-size:15px;flex-shrink:0;}
   .field-label{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft);margin-bottom:6px;display:block;}
   .input{width:100%;padding:13px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:15px;margin-bottom:16px;background:var(--surface-2);color:var(--text);transition:.15s;}
+  .pwd-wrap{position:relative;}
+  .pwd-wrap .input{padding-right:44px;}
+  .pwd-toggle{position:absolute;right:12px;top:0;bottom:16px;display:flex;align-items:center;background:none;color:var(--text-faint);padding:0;font-size:18px;line-height:1;}
+  .pwd-toggle:hover{color:var(--text-soft);}
   .input::placeholder{color:var(--text-faint);}
   .input:focus{outline:none;border-color:var(--blue);background:var(--surface-3);}
   select.input option{background:var(--surface-2);color:var(--text);}
@@ -801,6 +805,18 @@ function restoreSession(){
     const raw = localStorage.getItem(SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   }catch(err){ return null; }
+}
+
+function togglePasswordField(inputId, btnEl){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  if(input.type==='password'){
+    input.type='text';
+    btnEl.textContent='🙈';
+  } else {
+    input.type='password';
+    btnEl.textContent='👁';
+  }
 }
 
 function doAdminLogin(){
@@ -1574,7 +1590,10 @@ function renderLogin(){
         ${DATA.adminPassword==='admin123' ? `<div class="login-hint">Primeiro acesso: a senha padrão é <b>admin123</b>. Altere depois em "Alterar senha", no topo do painel.</div>` : ''}
         ${loginError ? `<div class="login-error">${loginError}</div>` : ''}
         <label class="field-label">Senha</label>
-        <input type="password" id="login-pass" class="input" placeholder="Sua senha" onkeydown="if(event.key==='Enter')doAdminLogin()">
+        <div class="pwd-wrap">
+          <input type="password" id="login-pass" class="input" placeholder="Sua senha" onkeydown="if(event.key==='Enter')doAdminLogin()">
+          <button type="button" class="pwd-toggle" onclick="togglePasswordField('login-pass', this)">👁</button>
+        </div>
         <button class="btn btn-primary" onclick="doAdminLogin()">Entrar</button>
         <button class="btn btn-ghost" onclick="backToRoleSelect()">← Voltar</button>
       </div>`;
@@ -1621,7 +1640,10 @@ function renderLogin(){
         <label class="field-label">Usuário</label>
         <input type="text" id="login-user" class="input" placeholder="seu usuário">
         <label class="field-label">Senha</label>
-        <input type="password" id="login-pass2" class="input" placeholder="sua senha" onkeydown="if(event.key==='Enter')doAlunoLogin()">
+        <div class="pwd-wrap">
+          <input type="password" id="login-pass2" class="input" placeholder="sua senha" onkeydown="if(event.key==='Enter')doAlunoLogin()">
+          <button type="button" class="pwd-toggle" onclick="togglePasswordField('login-pass2', this)">👁</button>
+        </div>
         <button class="btn btn-primary" onclick="doAlunoLogin()">Entrar</button>
         <button class="btn btn-ghost" onclick="openRecoverFlow()">Esqueci minha senha</button>
         <button class="btn btn-ghost" onclick="backToRoleSelect()">← Voltar</button>
