@@ -553,37 +553,6 @@ async function pollForUpdates(){
   }catch(err){ /* silencioso */ }
 }
 
-/* ============ NOTIFICAÇÕES DE TREINO (30 min antes) ============ */
-const notifiedReminders = new Set();
-function requestNotificationPermission(){
-  if(!('Notification' in window)){ alert('Seu navegador não suporta notificações.'); return; }
-  Notification.requestPermission().then(()=>{ render(); });
-}
-function checkTrainingReminders(){
-  if(!currentUser || currentUser.role!=='aluno') return;
-  if(!('Notification' in window) || Notification.permission!=='granted') return;
-  const student = findStudent(currentUser.studentId);
-  if(!student) return;
-  const now = new Date();
-  const jsDay = now.getDay();
-  if(jsDay===0) return; // domingo não é monitorado
-  const dayIdx = jsDay-1; // 0=Segunda..5=Sábado
-  const sched = getSchedule(student)[SCHEDULE_DAYS[dayIdx]];
-  if(!sched || !sched.active) return;
-  const [h,m] = (sched.time||'18:00').split(':').map(Number);
-  const scheduledTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
-  const diffMin = (scheduledTime - now) / 60000;
-  const key = `${toISO(now)}-${sched.time}`;
-  if(diffMin>0 && diffMin<=30 && !notifiedReminders.has(key)){
-    notifiedReminders.add(key);
-    try{
-      new Notification('Treino em breve! 💪', {
-        body: `Seu treino está marcado para ${sched.time} (em ${Math.round(diffMin)} min).`,
-        icon: LOGO_URL
-      });
-    }catch(err){ /* silencioso */ }
-  }
-}
 let currentUser = null;      // {role:'admin'} | {role:'aluno', studentId}
 let loginRole = null;        // 'admin' | 'aluno' | null
 let loginError = null;
@@ -853,7 +822,6 @@ function doAlunoLogin(){
     loginRole=null; loginError=null;
     saveSession();
     render();
-    checkTrainingReminders();
   } else { loginError = 'Usuário ou senha incorretos.'; render(); }
 }
 function logout(){ currentUser=null; loginRole=null; selectedStudentId=null; loginError=null; clearSession(); render(); }
@@ -2650,27 +2618,11 @@ function renderAdminApp(){
 
 /* ============ RENDER: ALUNO APP ============ */
 function renderConfiguracoes(student){
-  const supported = 'Notification' in window;
-  const perm = supported ? Notification.permission : 'unsupported';
-  let statusText, statusColor;
-  if(!supported){ statusText='Seu navegador não é compatível com notificações.'; statusColor='var(--red)'; }
-  else if(perm==='granted'){ statusText='Notificações ativadas neste navegador ✓'; statusColor='var(--green)'; }
-  else if(perm==='denied'){ statusText='Notificações bloqueadas — ative manualmente nas permissões do site, no seu navegador.'; statusColor='var(--red)'; }
-  else { statusText='Notificações ainda não ativadas.'; statusColor='var(--ink-soft)'; }
   return `
     <div class="panel">
-      <h4>Notificações de treino</h4>
+      <h4>Notificações push</h4>
       <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:16px;">
-        Ative para receber um aviso 30 minutos antes do horário marcado do seu treino.
-        Funciona enquanto esta página estiver aberta no seu navegador (mesmo minimizada) — se o navegador for totalmente fechado, o aviso não chega.
-      </p>
-      <p style="font-size:13.5px;font-weight:700;color:${statusColor};margin-bottom:16px;">${statusText}</p>
-      ${(supported && perm!=='granted') ? `<button class="btn btn-primary" onclick="requestNotificationPermission()">Ativar notificações</button>` : ''}
-    </div>
-    <div class="panel">
-      <h4>Notificações push (chegam mesmo com o app fechado)</h4>
-      <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:16px;">
-        Diferente do aviso acima, essas notificações chegam no seu celular mesmo com o navegador fechado — parecido com um aplicativo de verdade. Seu personal trainer pode te avisar sobre pagamentos, treinos e horários disponíveis.
+        Ative para receber avisos no seu celular mesmo com o app fechado — parecido com um aplicativo de verdade. Seu personal trainer pode te avisar sobre pagamentos, treinos e horários disponíveis.
       </p>
       <button class="btn btn-primary" onclick="enablePushNotifications()">Ativar notificações push</button>
     </div>`;
@@ -2802,16 +2754,13 @@ if('serviceWorker' in navigator){
     }
   }
   render();
-  if(currentUser && currentUser.role==='aluno') checkTrainingReminders();
   setInterval(pollForUpdates, 4000);
-  setInterval(checkTrainingReminders, 60000);
   setInterval(()=>{
     const now = new Date();
     const changedDay = now.getDate()!==today.getDate() || now.getMonth()!==today.getMonth() || now.getFullYear()!==today.getFullYear();
     today = now;
     if(changedDay && currentUser) render();
   }, 60000);
-  checkTrainingReminders();
 })();
 </script>
 </body>
