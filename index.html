@@ -2618,13 +2618,16 @@ function renderAdminApp(){
 
 /* ============ RENDER: ALUNO APP ============ */
 function renderConfiguracoes(student){
+  const isActivated = ('Notification' in window) && Notification.permission==='granted';
   return `
     <div class="panel">
       <h4>Notificações push</h4>
       <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:16px;">
         Ative para receber avisos no seu celular mesmo com o app fechado — parecido com um aplicativo de verdade. Seu personal trainer pode te avisar sobre pagamentos, treinos e horários disponíveis.
       </p>
-      <button class="btn btn-primary" onclick="enablePushNotifications()">Ativar notificações push</button>
+      ${isActivated
+        ? `<div style="display:inline-flex;align-items:center;gap:8px;background:var(--green-dim);color:var(--green);padding:11px 18px;border-radius:var(--radius-sm);font-weight:700;font-size:14px;">✓ Notificações ativadas</div>`
+        : `<button class="btn btn-primary" onclick="enablePushNotifications()">Ativar notificações push</button>`}
     </div>`;
 }
 
