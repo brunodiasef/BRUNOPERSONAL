@@ -494,6 +494,7 @@ function normalizeData(data){
     if(typeof s.birthDate !== 'string') s.birthDate = '';
     if(typeof s.suspended !== 'boolean') s.suspended = false;
     if(typeof s.lastPaidMonth !== 'string') s.lastPaidMonth = '';
+    if(typeof s.linkedStudentId !== 'string') s.linkedStudentId = '';
     if(!Array.isArray(s.fcmTokens)) s.fcmTokens = [];
     if(!Array.isArray(s.assessments)) s.assessments = s.assessments ? Object.values(s.assessments) : [];
     if(typeof s.secAnswer !== 'string') s.secAnswer = '';
@@ -678,13 +679,24 @@ function countSaturdaysBetween(startDate, endDate){
   return count;
 }
 
+function getBillingGroup(student){
+  // Se o aluno estiver vinculado a outro (ex: casal), soma os treinos e os
+  // pagamentos dos dois para efeito de cálculo de dívida/pendência.
+  const linked = student.linkedStudentId ? findStudent(student.linkedStudentId) : null;
+  const trainings = [...(student.trainings||[]), ...(linked ? (linked.trainings||[]) : [])];
+  const payments = [...(student.payments||[]), ...(linked ? (linked.payments||[]) : [])];
+  return { trainings, payments, linked };
+}
+
 function weeklyOwedByAttendance(student, throughDate){
   // Soma, semana por semana já ENCERRADA (sábado já passou), o valor real devido:
   // (quantidade de treinos "Comigo"/"Reposição" registrados naquela semana) × valor por aula.
   // Assim, faltas do personal reduzem o valor da semana e aulas extras aumentam.
+  // Se o aluno estiver vinculado a outro (ex: casal), soma treinos/pagamentos dos dois.
+  const { trainings, payments } = getBillingGroup(student);
   const billable = t => t.type==='comigo' || t.type==='reposicao';
-  const trainingDates = (student.trainings||[]).filter(billable).map(t=>t.date).filter(Boolean);
-  const paymentDates = (student.payments||[]).map(p=>p.date).filter(Boolean);
+  const trainingDates = trainings.filter(billable).map(t=>t.date).filter(Boolean);
+  const paymentDates = payments.map(p=>p.date).filter(Boolean);
   const allDates = [...trainingDates, ...paymentDates].sort();
   if(allDates.length===0) return 0;
   const startDate = parseISO(allDates[0]);
@@ -701,7 +713,7 @@ function weeklyOwedByAttendance(student, throughDate){
     totalOwed += sessionsThisWeek * Number(student.paymentValue||0);
     weekStart.setDate(weekStart.getDate()+7);
   }
-  const totalDiscount = (student.payments||[]).reduce((s,p)=>s+Number(p.discount||0), 0);
+  const totalDiscount = payments.reduce((s,p)=>s+Number(p.discount||0), 0);
   return Math.max(0, totalOwed - totalDiscount);
 }
 
@@ -709,9 +721,11 @@ function lastPaidOffWeek(student, throughDate){
   // Percorre semana por semana (mais antiga pra mais nova) somando o valor devido
   // (mesma lógica de weeklyOwedByAttendance), e descobre até qual semana o total
   // pago já cobre. Retorna a segunda e a sexta-feira dessa última semana quitada.
+  // Se vinculado a outro aluno, soma treinos/pagamentos dos dois.
+  const { trainings, payments } = getBillingGroup(student);
   const billable = t => t.type==='comigo' || t.type==='reposicao';
-  const trainingDates = (student.trainings||[]).filter(billable).map(t=>t.date).filter(Boolean);
-  const paymentDates = (student.payments||[]).map(p=>p.date).filter(Boolean);
+  const trainingDates = trainings.filter(billable).map(t=>t.date).filter(Boolean);
+  const paymentDates = payments.map(p=>p.date).filter(Boolean);
   const allDates = [...trainingDates, ...paymentDates].sort();
   if(allDates.length===0) return null;
   const startDate = parseISO(allDates[0]);
@@ -720,8 +734,8 @@ function lastPaidOffWeek(student, throughDate){
   const diffToMonday = (dow===0) ? -6 : (1-dow);
   weekStart.setDate(weekStart.getDate()+diffToMonday);
 
-  const totalPaid = (student.payments||[]).reduce((s,p)=>s+Number(p.value||0), 0);
-  let discountRemaining = (student.payments||[]).reduce((s,p)=>s+Number(p.discount||0), 0);
+  const totalPaid = payments.reduce((s,p)=>s+Number(p.value||0), 0);
+  let discountRemaining = payments.reduce((s,p)=>s+Number(p.discount||0), 0);
   let cumulativeOwed = 0;
   let lastPaidMonday = null;
 
@@ -754,18 +768,20 @@ function hasPendingPayment(student){
   if(student.paymentType==='mensal'){
     if(today.getDate() < 7) return false;
     const monthKey = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
-    const hasRecord = student.payments.some(p=>p.date.startsWith(monthKey));
+    const { payments } = getBillingGroup(student);
+    const hasRecord = payments.some(p=>p.date.startsWith(monthKey));
     return !hasRecord;
   } else {
     // semanal: saldo devedor por VALOR, baseado nos treinos realmente dados em cada
     // semana já encerrada — não na agenda fixa. Pagamentos parcelados somam certinho.
-    if(!student.payments || student.payments.length===0){
+    const { payments } = getBillingGroup(student);
+    if(payments.length===0){
       const monday = getWeekDates(0)[0];
       const diffDays = Math.floor((today - monday) / 86400000);
       return diffDays >= 5; // chega no sábado da 1ª semana
     }
     const totalOwed = weeklyOwedByAttendance(student, today);
-    const totalPaid = student.payments.reduce((s,p)=>s+Number(p.value||0), 0);
+    const totalPaid = payments.reduce((s,p)=>s+Number(p.value||0), 0);
     return totalPaid < totalOwed - 0.01;
   }
 }
@@ -1069,6 +1085,17 @@ function saveProfile(id){
   const conflicts = scheduleConflicts(newSchedule, id);
   if(conflicts.length){ alert('Não foi possível salvar a agenda — limite de 3 alunos por horário atingido:\n\n'+conflicts.join('\n')); return; }
   s.schedule = newSchedule;
+  const newLinkedId = document.getElementById('pf-linked').value || '';
+  const oldLinkedId = s.linkedStudentId || '';
+  if(oldLinkedId && oldLinkedId!==newLinkedId){
+    const oldLinked = findStudent(oldLinkedId);
+    if(oldLinked && oldLinked.linkedStudentId===id) oldLinked.linkedStudentId = '';
+  }
+  s.linkedStudentId = newLinkedId;
+  if(newLinkedId){
+    const newLinked = findStudent(newLinkedId);
+    if(newLinked) newLinked.linkedStudentId = id;
+  }
   saveData();
   render();
   const bar=document.getElementById('pf-saved-msg'); if(bar){ bar.style.display='inline'; setTimeout(()=>{ if(bar) bar.style.display='none'; },1800); }
@@ -2063,6 +2090,7 @@ function renderFinanceiro(student, readonly){
         <div class="lbl">Plano contratado</div>
         <div class="val" style="font-size:22px;text-transform:capitalize;">${student.paymentType}${student.suspended?' (suspenso)':''}</div>
         <div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${money(student.paymentValue)} por aula</div>
+        ${student.linkedStudentId && findStudent(student.linkedStudentId) ? `<div style="font-size:12px;color:var(--blue);margin-top:4px;font-weight:600;">🔗 Pagamento vinculado a ${findStudent(student.linkedStudentId).name}</div>` : ''}
         ${planoInfoHtml}
       </div>
     </div>
@@ -2484,6 +2512,14 @@ function renderPerfil(student){
         <input type="checkbox" id="pf-suspended" ${student.suspended?'checked':''}>
         <span style="font-size:13.5px;font-weight:600;color:var(--text);">Suspender contrato (zera cobranças e avisos de pagamento pendente enquanto estiver marcado)</span>
       </label>
+      <div style="margin-bottom:20px;">
+        <label class="field-label">Vincular pagamento a outro aluno (ex: casal, família)</label>
+        <select id="pf-linked" class="input" style="margin-bottom:4px;">
+          <option value="">Nenhum</option>
+          ${DATA.students.filter(o=>o.id!==student.id).map(o=>`<option value="${o.id}" ${student.linkedStudentId===o.id?'selected':''}>${o.name}</option>`).join('')}
+        </select>
+        <p style="font-size:11.5px;color:var(--text-faint);margin:0;">Quando vinculado, um pagamento registrado em qualquer um dos dois quita a dívida dos DOIS juntos (soma os treinos e os pagamentos de ambos na hora de calcular pendência).</p>
+      </div>
       <div style="background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
         <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Pagamento sugerido (${student.paymentType==='mensal'?'mensal':'semanal'} · antecipado)</div>
         <div style="font-size:13.5px;color:var(--text-soft);">${suggested.count} aula(s) prevista(s) ${suggested.periodLabel} (conforme agenda) × ${money(student.paymentValue)} = <b style="color:var(--green);font-family:'Oswald';font-size:16px;">${money(suggested.total)}</b></div>
