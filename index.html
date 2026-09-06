@@ -868,7 +868,7 @@ function submitRecoverUsername(){
   const user = document.getElementById('recover-user').value.trim();
   const student = DATA.students.find(s=>s.username===user);
   if(!student){ recoverError='Usuário não encontrado.'; render(); return; }
-  if(!student.secQuestion || !student.secQuestion.trim()){
+  if(!student.secQuestion || !student.secQuestion.trim() || !student.secAnswer || !student.secAnswer.trim()){
     recoverError='Este aluno ainda não tem uma pergunta de segurança cadastrada. Peça para o seu personal trainer redefinir sua senha.';
     render(); return;
   }
@@ -1062,6 +1062,10 @@ function addStudent(){
 function deleteStudent(id){
   const s=findStudent(id);
   if(!confirm(`Excluir o aluno "${s.name}"? Todos os dados financeiros e de treino serão perdidos.`)) return;
+  if(s.linkedStudentId){
+    const linked = findStudent(s.linkedStudentId);
+    if(linked && linked.linkedStudentId===id) linked.linkedStudentId = '';
+  }
   DATA.students = DATA.students.filter(s=>s.id!==id);
   saveData();
   if(selectedStudentId===id) selectedStudentId=null;
@@ -1125,7 +1129,17 @@ function abonarPagamento(id){
   const s = findStudent(id);
   if(!s) return;
   if(!confirm(`Abonar o pagamento de "${s.name}" deste período? Isso marca como quitado sem registrar valor recebido.`)) return;
-  s.payments.push({id:uid(), date: toISO(today), value:0, type: s.paymentType, waived:true});
+  // Lança o saldo em aberto como DESCONTO (é isso que a lógica de pendência entende),
+  // com valor recebido zero. Assim o aluno deixa de aparecer como pendente sem
+  // inflar o faturamento.
+  let waivedAmount = 0;
+  if(s.paymentType==='semanal'){
+    const { payments } = getBillingGroup(s);
+    const totalOwed = weeklyOwedByAttendance(s, today);
+    const totalPaid = payments.reduce((sum,p)=>sum+Number(p.value||0), 0);
+    waivedAmount = Math.max(0, totalOwed - totalPaid);
+  }
+  s.payments.push({id:uid(), date: toISO(today), value:0, type: s.paymentType, waived:true, discount: waivedAmount});
   saveData();
   render();
 }
