@@ -291,11 +291,11 @@
   }
 
   /* ---------- ABERTURA ANIMADA (sai com transição "portal") ---------- */
-  #splash{position:fixed;inset:0;z-index:9999;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent;}
+  #splash{position:fixed;inset:0;z-index:9999;background:#000;isolation:isolate;overflow:hidden;-webkit-tap-highlight-color:transparent;}
   #splash.sp-open{background:transparent;}
   #splash .sp-stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
   #splash .sp-logo{position:relative;width:min(86vw,420px);}
-  #splash .sp-logo img{display:block;width:100%;height:auto;mix-blend-mode:screen;}
+  #splash .sp-logo img{display:block;width:100%;height:auto;}
   #splash .sp-emblem{aspect-ratio:720/338;opacity:0;transform:scale(1.35);filter:blur(14px) brightness(2.2);}
   #splash .sp-word{aspect-ratio:720/128;margin-top:-2px;clip-path:inset(0 100% 0 0);}
   #splash .sp-tag{margin-top:22px;padding-left:.55em;font:600 11px 'Oswald',sans-serif;letter-spacing:.55em;color:#9fb4ff;text-transform:uppercase;opacity:0;}
@@ -340,8 +340,8 @@
     #splash,#splash *{animation-duration:.01s !important;animation-delay:0s !important;}
   }
 </style>
-<link rel="preload" as="image" href="abertura-emblema.jpg">
-<link rel="preload" as="image" href="abertura-texto.jpg">
+<link rel="preload" as="image" href="abertura-emblema.webp">
+<link rel="preload" as="image" href="abertura-texto.webp">
 </head>
 <body>
 <div id="splash" role="status" aria-label="Carregando">
@@ -349,8 +349,8 @@
   <canvas></canvas>
   <div class="sp-stage">
     <div class="sp-logo">
-      <img class="sp-emblem" src="abertura-emblema.jpg" alt="" width="720" height="338">
-      <img class="sp-word" src="abertura-texto.jpg" alt="Bruno Personal Trainer" width="720" height="128">
+      <img class="sp-emblem" src="abertura-emblema.webp" alt="" width="720" height="338">
+      <img class="sp-word" src="abertura-texto.webp" alt="Bruno Personal Trainer" width="720" height="128">
       <div class="sp-sweep"></div>
       <div class="sp-edge"></div>
     </div>
