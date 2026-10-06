@@ -289,9 +289,58 @@
     #print-area, #print-area *{visibility:visible;}
     #print-area{display:block;position:absolute;top:0;left:0;width:100%;}
   }
+
+  /* ---------- ABERTURA (vídeo na 1ª vez, logo nas próximas) ---------- */
+  #splash{position:fixed;inset:0;z-index:9999;background:url('abertura-final.jpg') center/contain no-repeat,linear-gradient(180deg,#0b2244 0%,#091a33 50%,#070f1a 100%);transition:opacity .6s ease,visibility .6s ease;}
+  #splash.splash-hide{opacity:0;visibility:hidden;}
+  #splash video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
+  #splash .sp-skip{position:absolute;right:18px;bottom:calc(22px + env(safe-area-inset-bottom));background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:8px 16px;font:600 12.5px 'Inter',sans-serif;letter-spacing:.04em;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity .4s ease;}
+  #splash .sp-skip.show{opacity:1;}
+  #splash .sp-wait{position:absolute;left:0;right:0;bottom:calc(70px + env(safe-area-inset-bottom));text-align:center;font:500 12px 'Inter',sans-serif;color:rgba(255,255,255,.75);letter-spacing:.08em;opacity:0;transition:opacity .4s ease;}
+  #splash .sp-wait.show{opacity:1;animation:spPulse 1.4s ease-in-out infinite;}
+  @keyframes spPulse{50%{opacity:.4;}}
 </style>
 </head>
 <body>
+<div id="splash" role="status" aria-label="Carregando"><div class="sp-wait">Carregando...</div></div>
+<script>
+/* Abertura: roda antes do script principal (que é grande) para aparecer na hora.
+   O vídeo toca só na primeira vez neste aparelho; depois fica só o quadro final do logo. */
+(function(){
+  const INTRO_KEY = 'bp_intro_seen';
+  const splash = document.getElementById('splash');
+  let introDone = true, dataReady = false;
+  function showWait(){ const w = splash.querySelector('.sp-wait'); if(w) w.classList.add('show'); }
+  function maybeHide(){
+    if(!introDone || !dataReady || splash.classList.contains('splash-hide')) return;
+    splash.classList.add('splash-hide');
+    setTimeout(()=>splash.remove(), 700);
+  }
+  function endIntro(){
+    if(introDone) return;
+    introDone = true;
+    const v = splash.querySelector('video'); if(v) v.pause();
+    const b = splash.querySelector('.sp-skip'); if(b) b.remove();
+    if(!dataReady) showWait();
+    maybeHide();
+  }
+  let seen = false;
+  try{ seen = localStorage.getItem(INTRO_KEY)==='1'; localStorage.setItem(INTRO_KEY,'1'); }catch(e){ seen = true; }
+  if(!seen){
+    introDone = false;
+    splash.insertAdjacentHTML('afterbegin', '<video src="abertura.mp4" muted playsinline autoplay preload="auto"></video><button class="sp-skip" type="button">Pular ›</button>');
+    const v = splash.querySelector('video');
+    v.addEventListener('ended', endIntro);
+    v.addEventListener('error', endIntro);          // vídeo falhou: não trava o app
+    const p = v.play(); if(p) p.catch(endIntro);    // autoplay bloqueado (ex: modo economia do iPhone)
+    splash.querySelector('.sp-skip').addEventListener('click', endIntro);
+    setTimeout(()=>{ const b = splash.querySelector('.sp-skip'); if(b) b.classList.add('show'); }, 1200);
+  } else {
+    setTimeout(()=>{ if(!dataReady) showWait(); }, 600);
+  }
+  window.splashDataReady = function(){ dataReady = true; maybeHide(); };
+})();
+</script>
 <div id="app"></div>
 <div id="print-area"></div>
 
@@ -2847,8 +2896,8 @@ if('serviceWorker' in navigator){
 }
 
 (async function initApp(){
-  renderLoadingScreen();
   await loadDataAsync();
+  if(window.splashDataReady) window.splashDataReady();
   if(storageUnavailable){ renderStorageErrorScreen(); return; }
   const restored = restoreSession();
   if(restored){
