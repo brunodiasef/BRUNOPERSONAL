@@ -339,7 +339,47 @@
   @media (prefers-reduced-motion: reduce){
     #splash,#splash *{animation-duration:.01s !important;animation-delay:0s !important;}
   }
+
+  /* ---------- ABERTURA "MONTAGEM" (fundo branco; o logo se monta e voa até o logo da tela de login) ---------- */
+  #splashW{position:fixed;inset:0;z-index:9999;background:#fff;overflow:hidden;-webkit-tap-highlight-color:transparent;}
+  #splashW.sw-leave{pointer-events:none;}
+  #splashW .sw-stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  /* mesma proporção e respiro do .login-logo-float, para o voo terminar idêntico a ele */
+  #splashW .sw-box{position:relative;box-sizing:border-box;width:min(80vw,400px);aspect-ratio:360/236;padding:5.5%;border-radius:24px;background:#fff;}
+  #splashW .sw-content{position:relative;width:100%;height:100%;}
+  #splashW .sw-art{position:absolute;top:0;left:50%;height:100%;aspect-ratio:640/419;transform:translateX(-50%);}
+  #splashW .sw-logo,#splashW .sw-shine{position:absolute;inset:0;width:100%;height:100%;}
+  #splashW .sw-logo{display:block;opacity:0;}
+  #splashW .sw-shine{-webkit-mask:url(abertura-logo.png) 0 0/100% 100% no-repeat;mask:url(abertura-logo.png) 0 0/100% 100% no-repeat;background:linear-gradient(110deg,transparent 40%,rgba(255,255,255,.95) 50%,transparent 60%);background-size:300% 100%;background-position:150% 0;opacity:0;}
+  /* brilho azul atrás do logo e duas ondas de choque no momento do encaixe */
+  #splashW .sw-glow,#splashW .sw-ring{position:absolute;left:50%;top:50%;aspect-ratio:1;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%) scale(0);opacity:0;}
+  #splashW .sw-glow{width:190%;background:radial-gradient(circle,rgba(47,107,255,.22) 0%,rgba(47,107,255,.07) 38%,transparent 66%);}
+  #splashW .sw-ring{width:70%;border:2px solid rgba(47,107,255,.75);box-shadow:0 0 22px rgba(47,107,255,.45),inset 0 0 14px rgba(47,107,255,.3);}
+  #splashW canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+  #splashW .sw-tag{margin-top:18px;padding-left:.55em;font:600 11px 'Oswald',sans-serif;letter-spacing:.55em;color:#1f4fd8;text-transform:uppercase;opacity:0;}
+  #splashW .sw-wait{position:absolute;left:0;right:0;bottom:calc(60px + env(safe-area-inset-bottom));text-align:center;font:500 11px 'Inter',sans-serif;color:rgba(20,24,40,.5);letter-spacing:.12em;opacity:0;transition:opacity .4s ease;}
+  #splashW .sw-wait.show{opacity:1;animation:spPulse 1.4s ease-in-out infinite;}
+  #splashW.sw-hit .sw-logo{animation:swReveal .45s ease-out forwards;}
+  #splashW.sw-hit .sw-art{animation:swPunch .7s cubic-bezier(.2,1.7,.4,1) both;}
+  #splashW.sw-hit canvas{animation:spFadeOut .22s ease forwards;}
+  #splashW.sw-hit .sw-glow{animation:swGlow .9s cubic-bezier(.2,.8,.2,1) forwards,swBreathe 3s ease-in-out .9s infinite;}
+  #splashW.sw-hit .sw-ring{animation:swRing .9s cubic-bezier(.1,.7,.2,1) forwards;}
+  #splashW.sw-hit .sw-ring+.sw-ring{animation-delay:.14s;}
+  #splashW.sw-hit .sw-shine{animation:swShine .9s ease-in-out .5s both;}
+  #splashW.sw-hit .sw-tag{animation:spTagIn .8s ease-out .65s forwards;}
+  #splashW.sw-leave .sw-logo{animation:none;opacity:1;}
+  #splashW.sw-leave .sw-tag,#splashW.sw-leave .sw-wait,#splashW.sw-leave .sw-shine,#splashW.sw-leave .sw-glow,#splashW.sw-leave .sw-ring,#splashW.sw-leave canvas{animation:spFadeOut .25s ease forwards;}
+  @keyframes swReveal{0%{opacity:0;filter:brightness(2.6) saturate(1.6) blur(3px);}35%{opacity:1;}100%{opacity:1;filter:none;}}
+  @keyframes swPunch{0%{transform:translateX(-50%) scale(.93);}45%{transform:translateX(-50%) scale(1.045);}100%{transform:translateX(-50%) scale(1);}}
+  @keyframes swGlow{0%{transform:translate(-50%,-50%) scale(.3);opacity:0;}30%{opacity:1;}100%{transform:translate(-50%,-50%) scale(1);opacity:1;}}
+  @keyframes swBreathe{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:1;}50%{transform:translate(-50%,-50%) scale(1.06);opacity:.65;}}
+  @keyframes swRing{0%{transform:translate(-50%,-50%) scale(.2);opacity:.95;}100%{transform:translate(-50%,-50%) scale(3.2);opacity:0;}}
+  @keyframes swShine{0%{opacity:1;background-position:150% 0;}100%{opacity:1;background-position:-50% 0;}}
+  @media (prefers-reduced-motion: reduce){
+    #splashW,#splashW *{animation-duration:.01s !important;animation-delay:0s !important;}
+  }
 </style>
+<link rel="preload" as="image" href="abertura-logo.png">
 <link rel="preload" as="image" href="abertura-emblema.webp">
 <link rel="preload" as="image" href="abertura-texto.webp">
 </head>
@@ -358,12 +398,26 @@
   <div class="sp-edge"></div><div class="sp-fx sp-flare"></div><div class="sp-fx sp-burst"></div><div class="sp-fx sp-ring"></div>
   <div class="sp-wait">Carregando...</div>
 </div>
+<div id="splashW" role="status" aria-label="Carregando">
+  <div class="sw-stage">
+    <div class="sw-box"><div class="sw-content"><div class="sw-art">
+      <div class="sw-glow"></div><div class="sw-ring"></div><div class="sw-ring"></div>
+      <img class="sw-logo" src="abertura-logo.png" alt="Bruno Personal Trainer" width="640" height="419">
+      <div class="sw-shine"></div>
+    </div></div></div>
+    <div class="sw-tag">Seu limite é você</div>
+  </div>
+  <canvas></canvas>
+  <div class="sw-wait">Carregando...</div>
+</div>
 <script>
 /* Abertura animada: roda antes do script principal (que é grande) para aparecer na hora.
    Sai com a transição "portal" quando a animação terminou E os dados já chegaram.
    Tocar na tela pula a animação (a saída ainda espera os dados). */
+const SPLASH_VARIANT = /[?&]abertura=portal\b/.test(location.search) ? 'portal' : 'montagem';
 (function(){
   const splash = document.getElementById('splash');
+  if(SPLASH_VARIANT !== 'portal'){ splash.remove(); return; }
   const ANIM_MS = 2900;
   let animDone = false, dataReady = false, leaving = false, raf = 0;
 
@@ -377,7 +431,7 @@
   emblem.addEventListener('load', setCenter);
   // o feixe vertical atravessa a tela inteira em velocidade constante;
   // o texto é revelado exatamente enquanto o feixe passa por cima dele
-  const EDGE_START = 1250, EDGE_MS = 1000;
+  const EDGE_START = 1250, EDGE_MS = 350;
   const word = splash.querySelector('.sp-word').getBoundingClientRect(), vw = innerWidth || 1;
   splash.style.setProperty('--edge-dur', EDGE_MS + 'ms');
   splash.style.setProperty('--wipe-delay', Math.round(EDGE_START + EDGE_MS*Math.max(0, word.left)/vw) + 'ms');
@@ -434,6 +488,146 @@
     setTimeout(()=>{ cancelAnimationFrame(raf); splash.remove(); }, 1150);
   }
   setTimeout(finishAnim, ANIM_MS);
+  splash.addEventListener('click', finishAnim);
+  window.splashDataReady = function(){ dataReady = true; maybeLeave(); };
+})();
+
+/* Abertura "montagem": fundo branco; milhares de partículas com as cores do próprio logo
+   convergem em espiral e, no encaixe, o logo nítido aparece com flash, onda de choque e brilho.
+   Na saída, o logo voa e encolhe até a posição exata do logo da tela de login
+   enquanto o branco desaparece. Se a tela não for o login (sessão já aberta), só esmaece. */
+(function(){
+  const splash = document.getElementById('splashW');
+  if(SPLASH_VARIANT !== 'montagem'){ splash.remove(); return; }
+  const logo = splash.querySelector('.sw-logo'), art = splash.querySelector('.sw-art'), canvas = splash.querySelector('canvas');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let animDone = false, dataReady = false, leaving = false, hit = false, raf = 0;
+
+  // encaixe: o logo nítido assume o lugar das partículas
+  function impact(){
+    if(hit) return;
+    hit = true;
+    splash.classList.add('sw-hit');
+    setTimeout(()=>cancelAnimationFrame(raf), 450);
+    setTimeout(finishAnim, reduce ? 300 : 1300);
+  }
+  setTimeout(impact, 2600); // segurança: se a imagem demorar, não prende a abertura
+  if(reduce) impact();
+  else if(logo.complete && logo.naturalWidth) assemble();
+  else { logo.addEventListener('load', assemble); logo.addEventListener('error', impact); }
+
+  function assemble(){
+    if(hit) return;
+    const r = art.getBoundingClientRect(), w = Math.round(r.width), h = Math.round(r.height);
+    if(!w || !h){ impact(); return; }
+    let px;
+    try {
+      const off = document.createElement('canvas'); off.width = w; off.height = h;
+      const o = off.getContext('2d'); o.drawImage(logo, 0, 0, w, h);
+      px = o.getImageData(0, 0, w, h).data;
+    } catch(e){ impact(); return; } // imagem "contaminada" (ex.: aberto como arquivo local)
+
+    const dpr = Math.min(window.devicePixelRatio||1, 2), vw = innerWidth, vh = innerHeight;
+    const ctx = canvas.getContext('2d');
+    canvas.width = vw*dpr; canvas.height = vh*dpr; ctx.scale(dpr, dpr);
+    const cx = r.left + w/2, cy = r.top + h/2, far = Math.max(vw, vh);
+    const step = Math.max(2, Math.round(Math.sqrt(w*h/5200))), size = step*1.15;
+    // uma partícula por ponto da grade com cor do logo (ignora transparente e branco),
+    // agrupadas por cor para desenhar rápido
+    const groups = new Map();
+    for(let y = step>>1; y < h; y += step){
+      for(let x = step>>1; x < w; x += step){
+        const i = (y*w + x)*4;
+        if(px[i+3] < 140) continue;
+        const R = px[i], G = px[i+1], B = px[i+2];
+        if(R*.3 + G*.59 + B*.11 > 190) continue; // branco e cinza-claro das bordas só poluiriam o redemoinho
+        const key = `rgb(${R&0xF8},${G&0xF8},${B&0xF8})`;
+        const tx = r.left + x, ty = r.top + y;
+        const a = Math.atan2(ty - cy, tx - cx) + (Math.random() - .5)*1.6, dist = far*(.45 + Math.random()*.55);
+        const sx = cx + Math.cos(a)*dist, sy = cy + Math.sin(a)*dist;
+        // ponto de controle deslocado de lado: o caminho vira uma curva (efeito de redemoinho)
+        const mx = (sx + tx)/2, my = (sy + ty)/2, nx = -(ty - sy), ny = tx - sx, swirl = .35 + Math.random()*.25;
+        const p = {sx, sy, tx, ty, kx: mx + nx*swirl, ky: my + ny*swirl, d: Math.random()*200 + (x/w)*120, dur: 780 + Math.random()*200};
+        (groups.get(key) || groups.set(key, []).get(key)).push(p);
+      }
+    }
+    const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
+    const t0 = performance.now(), HIT_AT = 1080;
+    (function frame(now){
+      const el = now - t0;
+      // rastro curto: apaga só parte do quadro anterior
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, 0, vw, vh);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.lineCap = 'round';
+      // cada partícula é um traço da posição anterior até a atual (motion blur);
+      // parada no lugar, vira um ponto redondo
+      for(const [color, list] of groups){
+        ctx.strokeStyle = color; ctx.lineWidth = size;
+        ctx.beginPath();
+        for(const p of list){
+          let t = (el - p.d)/p.dur;
+          if(t <= 0) continue;
+          if(t > 1) t = 1;
+          const e = ease(t), u = 1 - e;
+          const x = u*u*p.sx + 2*u*e*p.kx + e*e*p.tx, y = u*u*p.sy + 2*u*e*p.ky + e*e*p.ty;
+          ctx.moveTo(p.px === undefined ? x : p.px, p.py === undefined ? y : p.py); ctx.lineTo(x + .01, y);
+          p.px = x; p.py = y;
+        }
+        ctx.stroke();
+      }
+      if(el >= HIT_AT) impact();
+      raf = requestAnimationFrame(frame);
+    })(t0);
+  }
+
+  function finishAnim(){
+    if(animDone) return;
+    impact();
+    animDone = true;
+    if(!dataReady) setTimeout(()=>{ if(!dataReady && !leaving) splash.querySelector('.sw-wait').classList.add('show'); }, 1200);
+    maybeLeave();
+  }
+  function maybeLeave(){
+    if(!animDone || !dataReady || leaving) return;
+    leaving = true;
+    // o app desenha a tela logo depois de avisar que os dados chegaram (na mesma tarefa): espera esse desenho
+    setTimeout(leave, 0);
+  }
+  function loginLogo(){
+    for(const el of document.querySelectorAll('.login-logo-float, .login-logo-inline')){
+      const r = el.getBoundingClientRect();
+      if(r.width && r.height && r.bottom > 0 && r.top < innerHeight) return el;
+    }
+    return null;
+  }
+  function leave(){
+    const box = splash.querySelector('.sw-box'), target = loginLogo();
+    if(!box.animate){ splash.remove(); return; }
+    const from = box.getBoundingClientRect(), fs = getComputedStyle(box);
+    const pad = fs.paddingTop, radius = fs.borderTopLeftRadius;
+    cancelAnimationFrame(raf);
+    splash.classList.add('sw-leave');
+    if(!target){
+      box.animate([{transform:'scale(1)', opacity:1}, {transform:'scale(1.12)', opacity:0}], {duration:450, easing:'ease-in', fill:'forwards'});
+      splash.animate([{opacity:1}, {opacity:0}], {duration:550, delay:150, fill:'forwards'}).finished.then(()=>splash.remove());
+      return;
+    }
+    const to = target.getBoundingClientRect(), ts = getComputedStyle(target);
+    // tira a caixa do fluxo na posição atual, em px, para poder voar até o alvo
+    Object.assign(box.style, {position:'fixed', left:from.left+'px', top:from.top+'px', width:from.width+'px', height:from.height+'px', padding:pad, aspectRatio:'auto'});
+    const fly = box.animate([
+      {left:from.left+'px', top:from.top+'px', width:from.width+'px', height:from.height+'px', padding:pad, borderRadius:radius, boxShadow:'0 0 0 0 rgba(0,0,0,0)'},
+      {left:to.left+'px', top:to.top+'px', width:to.width+'px', height:to.height+'px', padding:ts.paddingTop, borderRadius:ts.borderTopLeftRadius, boxShadow:ts.boxShadow}
+    ], {duration:950, easing:'cubic-bezier(.65,0,.2,1)', fill:'forwards'});
+    splash.animate([{backgroundColor:'#fff'}, {backgroundColor:'rgba(255,255,255,0)'}], {duration:700, delay:200, easing:'ease', fill:'forwards'});
+    const form = document.querySelector('.login-form-side');
+    // só opacidade: deslocar o formulário criaria uma barra de rolagem e tiraria o logo do lugar
+    if(form && form.animate) form.animate([{opacity:0}, {opacity:1}], {duration:600, delay:500, easing:'ease-out', fill:'backwards'});
+    fly.finished
+      .then(()=> target.decode ? target.decode().catch(()=>{}) : null)
+      .then(()=> splash.remove());
+  }
   splash.addEventListener('click', finishAnim);
   window.splashDataReady = function(){ dataReady = true; maybeLeave(); };
 })();
