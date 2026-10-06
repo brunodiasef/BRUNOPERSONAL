@@ -302,12 +302,12 @@
   #splash .sp-wait{position:absolute;left:0;right:0;bottom:calc(60px + env(safe-area-inset-bottom));text-align:center;font:500 11px 'Inter',sans-serif;color:rgba(255,255,255,.6);letter-spacing:.12em;opacity:0;transition:opacity .4s ease;}
   #splash .sp-wait.show{opacity:1;animation:spPulse 1.4s ease-in-out infinite;}
   #splash .sp-fx{position:absolute;pointer-events:none;mix-blend-mode:screen;}
-  #splash .sp-flare{left:50%;top:var(--cy,45%);width:140vw;height:3px;margin:-1.5px 0 0 -70vw;border-radius:50%;background:radial-gradient(ellipse at center,#fff 0%,#9fd0ff 12%,#2f6bff 38%,rgba(47,107,255,0) 70%);box-shadow:0 0 18px 4px rgba(76,140,255,.75),0 0 60px 10px rgba(40,90,255,.35);transform:scaleX(0);opacity:0;}
+  #splash .sp-flare{left:0;top:var(--cy,45%);width:100vw;height:3px;margin-top:-1.5px;background:radial-gradient(ellipse 30% 100% at center,#fff 0%,rgba(255,255,255,0) 100%),linear-gradient(90deg,rgba(47,107,255,.35) 0%,#5d8dff 12%,#a9cbff 50%,#5d8dff 88%,rgba(47,107,255,.35) 100%);box-shadow:0 0 18px 4px rgba(76,140,255,.75),0 0 60px 10px rgba(40,90,255,.35);transform:scaleX(0);opacity:0;}
   #splash .sp-burst{left:50%;top:var(--cy,45%);width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:radial-gradient(circle,#fff 0%,#a9c8ff 25%,rgba(60,110,255,.5) 50%,rgba(30,70,255,0) 72%);transform:scale(0);opacity:0;}
   #splash .sp-ring{left:50%;top:var(--cy,45%);width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;border:2px solid rgba(140,180,255,.9);box-shadow:0 0 24px rgba(76,120,255,.8),inset 0 0 18px rgba(76,120,255,.6);transform:scale(0);opacity:0;}
   #splash .sp-glow{left:50%;top:var(--cy,45%);width:120vmin;height:120vmin;margin:-60vmin 0 0 -60vmin;border-radius:50%;background:radial-gradient(circle,rgba(40,90,255,.28) 0%,rgba(40,90,255,.08) 35%,transparent 65%);opacity:0;}
   #splash .sp-sweep{position:absolute;inset:0;mix-blend-mode:screen;pointer-events:none;background:linear-gradient(105deg,transparent 35%,rgba(170,200,255,0) 42%,rgba(200,220,255,.55) 50%,rgba(170,200,255,0) 58%,transparent 65%);background-size:250% 100%;background-position:120% 0;opacity:0;}
-  #splash .sp-edge{position:absolute;top:-8%;bottom:-8%;left:0;width:3px;background:linear-gradient(180deg,transparent,#cfe0ff,transparent);box-shadow:0 0 14px 3px rgba(90,140,255,.9);opacity:0;}
+  #splash .sp-edge{position:absolute;top:0;bottom:0;left:0;width:3px;margin-left:-1.5px;background:linear-gradient(180deg,rgba(207,224,255,0) 0%,#cfe0ff 30%,#fff 50%,#cfe0ff 70%,rgba(207,224,255,0) 100%);box-shadow:0 0 14px 3px rgba(90,140,255,.9),0 0 50px 8px rgba(60,110,255,.35);opacity:0;pointer-events:none;}
   #splash canvas{position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;pointer-events:none;}
   #splash .sp-hole{position:absolute;left:50%;top:var(--cy,45%);width:0;height:0;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 300vmax #000,inset 0 0 40px 10px rgba(90,140,255,.9);}
   #splash.sp-play .sp-flare{animation:spFlare .9s cubic-bezier(.2,.8,.2,1) .1s forwards;}
@@ -315,21 +315,21 @@
   #splash.sp-play .sp-ring{animation:spRing 1s cubic-bezier(.1,.7,.2,1) .65s forwards;}
   #splash.sp-play .sp-glow{animation:spGlowIn 1.2s ease-out .6s forwards,spBreathe 3s ease-in-out 1.8s infinite;}
   #splash.sp-play .sp-emblem{animation:spEmblemIn .9s cubic-bezier(.16,1,.3,1) .62s forwards;}
-  #splash.sp-play .sp-word{animation:spWipe .7s cubic-bezier(.65,0,.35,1) 1.25s forwards;}
-  #splash.sp-play .sp-edge{animation:spEdge .7s cubic-bezier(.65,0,.35,1) 1.25s forwards;}
+  #splash.sp-play .sp-word{animation:spWipe var(--wipe-dur,.75s) linear var(--wipe-delay,1.35s) forwards;}
+  #splash.sp-play .sp-edge{animation:spEdge var(--edge-dur,1s) linear 1.25s forwards;}
   #splash.sp-play .sp-sweep{animation:spSweep 1.1s ease-in-out 1.9s forwards;}
   #splash.sp-play .sp-tag{animation:spTagIn .8s ease-out 2.05s forwards;}
   #splash.sp-open .sp-hole{animation:spHole .95s cubic-bezier(.7,0,.25,1) .12s forwards;}
   #splash.sp-open .sp-logo,#splash.sp-open .sp-tag{animation:spZoom .7s cubic-bezier(.7,0,.3,1) forwards;}
   #splash.sp-open .sp-glow,#splash.sp-open canvas,#splash.sp-open .sp-wait{animation:spFadeOut .5s ease forwards;}
-  @keyframes spFlare{0%{transform:scaleX(0);opacity:0;}35%{transform:scaleX(1);opacity:1;}70%{opacity:1;}100%{transform:scaleX(1.1) scaleY(.4);opacity:0;}}
+  @keyframes spFlare{0%{transform:scaleX(0);opacity:1;}40%{transform:scaleX(1);opacity:1;}75%{transform:scaleX(1);opacity:1;}100%{transform:scaleX(1) scaleY(.5);opacity:0;}}
   @keyframes spBurst{0%{transform:scale(0);opacity:1;}15%{opacity:.85;}100%{transform:scale(38);opacity:0;}}
   @keyframes spRing{0%{transform:scale(0);opacity:1;}100%{transform:scale(16);opacity:0;}}
   @keyframes spGlowIn{to{opacity:1;}}
   @keyframes spBreathe{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.08);opacity:.7;}}
   @keyframes spEmblemIn{0%{opacity:0;transform:scale(1.35);filter:blur(14px) brightness(2.2);}60%{opacity:1;filter:blur(0) brightness(1.4);}100%{opacity:1;transform:scale(1);filter:blur(0) brightness(1);}}
   @keyframes spWipe{to{clip-path:inset(0 0 0 0);}}
-  @keyframes spEdge{0%{left:0;opacity:1;}90%{opacity:1;}100%{left:100%;opacity:0;}}
+  @keyframes spEdge{0%{transform:translateX(0);opacity:1;}92%{opacity:1;}100%{transform:translateX(100vw);opacity:0;}}
   @keyframes spSweep{0%{opacity:1;background-position:120% 0;}100%{opacity:1;background-position:-20% 0;}}
   @keyframes spTagIn{0%{opacity:0;letter-spacing:.9em;}100%{opacity:.9;letter-spacing:.55em;}}
   @keyframes spHole{0%{width:0;height:0;}100%{width:260vmax;height:260vmax;}}
@@ -352,11 +352,10 @@
       <img class="sp-emblem" src="abertura-emblema.webp" alt="" width="720" height="338">
       <img class="sp-word" src="abertura-texto.webp" alt="Bruno Personal Trainer" width="720" height="128">
       <div class="sp-sweep"></div>
-      <div class="sp-edge"></div>
     </div>
     <div class="sp-tag">Seu limite é você</div>
   </div>
-  <div class="sp-fx sp-flare"></div><div class="sp-fx sp-burst"></div><div class="sp-fx sp-ring"></div>
+  <div class="sp-edge"></div><div class="sp-fx sp-flare"></div><div class="sp-fx sp-burst"></div><div class="sp-fx sp-ring"></div>
   <div class="sp-wait">Carregando...</div>
 </div>
 <script>
@@ -376,6 +375,13 @@
   }
   setCenter();
   emblem.addEventListener('load', setCenter);
+  // o feixe vertical atravessa a tela inteira em velocidade constante;
+  // o texto é revelado exatamente enquanto o feixe passa por cima dele
+  const EDGE_START = 1250, EDGE_MS = 1000;
+  const word = splash.querySelector('.sp-word').getBoundingClientRect(), vw = innerWidth || 1;
+  splash.style.setProperty('--edge-dur', EDGE_MS + 'ms');
+  splash.style.setProperty('--wipe-delay', Math.round(EDGE_START + EDGE_MS*Math.max(0, word.left)/vw) + 'ms');
+  splash.style.setProperty('--wipe-dur', Math.round(EDGE_MS*Math.min(word.width, vw)/vw) + 'ms');
   void splash.offsetWidth; // garante o estado inicial antes de começar as animações
   splash.classList.add('sp-play');
   startParticles();
