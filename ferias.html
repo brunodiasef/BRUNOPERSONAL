@@ -128,6 +128,55 @@
 
   .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--surface-3);color:var(--text);font-size:13.5px;font-weight:600;padding:11px 16px;border-radius:12px;z-index:60;opacity:0;transition:all .25s;pointer-events:none;max-width:90vw;text-align:center;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  /* dia em roleta: o horário do centro fica grande, os vizinhos diminuem */
+  body.day-mode{padding-bottom:0;overflow:hidden;height:100vh;height:100dvh;}
+  .wheel{position:relative;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -16px;padding:0 16px;
+    -webkit-mask-image:linear-gradient(transparent,#000 9%,#000 91%,transparent);mask-image:linear-gradient(transparent,#000 9%,#000 91%,transparent);}
+  .wheel::-webkit-scrollbar{display:none;}
+  .wheel .sp{scroll-snap-align:none;}
+  .cs{position:relative;overflow:hidden;scroll-snap-align:center;margin:0 0 10px;padding:16px 18px 16px;border-radius:24px;background:var(--surface);border:1px solid var(--border);transform-origin:center;will-change:transform,opacity;}
+  .cs::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,#4C6BFF 0%,#2B45D6 100%);opacity:0;transition:opacity .25s;}
+  .cs::after{content:'';position:absolute;width:250px;height:250px;right:-120px;top:-60px;border-radius:50%;border:2px solid rgba(255,255,255,.14);opacity:0;transition:opacity .25s;pointer-events:none;}
+  .cs > *{position:relative;z-index:1;}
+  .cs.center{border-color:transparent;box-shadow:0 14px 34px rgba(43,69,214,.35);}
+  .cs.center::before,.cs.center::after{opacity:1;}
+  .cs .k{font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-soft);}
+  .cs .k.live{color:var(--blue);}
+  .cs .hd{display:flex;align-items:flex-end;gap:10px;margin:2px 0 12px;}
+  .cs .big{font-family:'Oswald',sans-serif;font-size:54px;font-weight:700;line-height:1;letter-spacing:.01em;}
+  .cs .range{font-size:14px;color:var(--text-soft);margin-top:6px;font-variant-numeric:tabular-nums;}
+  .cs .range .full{color:var(--red);font-weight:700;}
+  .cs .rem{margin-left:auto;text-align:right;}
+  .cs .rem small{display:block;font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-soft);}
+  .cs .rem b{font-family:'Oswald',sans-serif;font-size:50px;font-weight:700;line-height:1;color:#FFC93C;white-space:nowrap;}
+  .cs .rem b i{font-style:normal;font-size:22px;margin-left:2px;}
+  .cs .rem b.done{font-size:30px;color:var(--text-soft);}
+  .cs .bar{height:8px;border-radius:8px;background:var(--surface-3);margin-top:14px;overflow:hidden;}
+  .cs .bar span{display:block;height:100%;border-radius:8px;background:#FFC93C;}
+  .cs.past .bar span{background:var(--text-faint);}
+  .cs.center .k,.cs.center .range,.cs.center .rem small{color:rgba(255,255,255,.85);}
+  .cs.center .rem b.done{color:rgba(255,255,255,.75);}
+  .cs.center .bar{background:rgba(255,255,255,.22);}
+  .cs.center .p{background:rgba(255,255,255,.13);border-color:transparent;color:#fff;}
+  .cs.center .p:not(.swap):not(.moved-in):not(.extra):not(.off){border-left-color:rgba(255,255,255,.75);}
+  .cs.center .p.off{color:rgba(255,255,255,.55);border-left-color:rgba(255,255,255,.25);}
+  .cs.center .p .tag{background:rgba(0,0,0,.28);}
+  .cs.center .p.off .tag{color:#FFB3AC;}
+  .cs.center .addbtn{border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.85);}
+  .cs .people{gap:6px;}
+  .cs.free{padding:12px 18px;background:transparent;border-style:dashed;}
+  .cs.free .hd{margin:0 0 8px;}
+  .cs.free .big{font-size:34px;color:var(--text-soft);}
+  .cs.free .k{color:var(--green);}
+  .cs.center.free .big{color:#fff;}
+  .cs.center .addbtn{border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.9);}
+  .commit{background:var(--green);color:#06210f;font-weight:700;font-size:12.5px;padding:7px 12px;border-radius:20px;margin-left:auto;}
+  .diff{background:var(--surface-2);border-radius:12px;padding:10px 12px;margin-bottom:8px;}
+  .diff b{display:block;font-size:14px;margin-bottom:4px;}
+  .diff div{font-size:13px;color:var(--text-soft);font-variant-numeric:tabular-nums;}
+  .diff .old{color:var(--text-faint);text-decoration:line-through;}
+  .diff .new{color:var(--green);font-weight:600;}
+  .warn{background:var(--amber-dim);color:var(--amber);font-size:12.5px;line-height:1.5;border-radius:10px;padding:10px 12px;margin-bottom:10px;}
   .loading,.empty{min-height:60vh;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--text-soft);font-size:14px;text-align:center;}
 </style>
 </head>
@@ -146,6 +195,9 @@
    - Mudanças (trocar, mudar horário, excluir, incluir) valem para todas
      as semanas das férias e ficam em /feriasAjustes/{id}, sem mexer
      no cadastro, no financeiro nem na agenda normal.
+   - "Atualizar horário" fixa as mudanças num horário-base próprio das
+     férias (/feriasBase/{id} = {sid, name, day, time}), que passa a ser
+     a base no lugar do horário principal. O cadastro nunca é alterado.
    ========================================================= */
 const DB = "https://bruno-personal-1fb4b-default-rtdb.firebaseio.com";
 const SESSION_KEY = 'bp_agenda_sessao'; // mesmo login da agenda
@@ -158,6 +210,7 @@ const CAPACITY = 3;
 
 let students = [];     // [{id, name, suspended, schedule}]
 let plan = {};         // { id: ajuste }
+let feriasBase = null; // horário-base das férias já atualizado (null = usa o horário principal)
 let view = 'dia';
 let day = (()=>{ const g = new Date().getDay(); return DAYS[(g===0 ? 1 : g) - 1].k; })();
 let sheetOpen = false;
@@ -196,17 +249,27 @@ async function loadStudentsLight(){
 }
 async function loadPlan(){
   const seq = writeSeq;
-  const data = await api('feriasAjustes') || {};
+  const [data, base] = await Promise.all([api('feriasAjustes'), api('feriasBase')]);
   if(seq !== writeSeq) return; // houve gravação durante a leitura
-  plan = data;
+  plan = data || {};
+  feriasBase = base || null;
 }
 function findStudent(id){ return students.find(s=>s.id===id); }
-function nameOf(id, fallback){ const s = findStudent(id); return s ? s.name : (fallback || 'Aluno'); }
+function nameOf(id, fallback){
+  const s = findStudent(id); if(s) return s.name;
+  const b = feriasBase && Object.values(feriasBase).find(e=>e.sid===id); // pessoa sem cadastro no horário-base
+  return b ? b.name : (fallback || 'Aluno');
+}
 
-/* Monta um dia da semana de férias: horário principal + mudanças do plano */
+/* Monta um dia da semana de férias: horário-base (das férias ou o principal) + mudanças do plano */
 function buildDay(dayKey){
   const items = [];
-  students.forEach(s=>{
+  if(feriasBase){
+    Object.values(feriasBase).forEach(e=>{
+      if(e.day!==dayKey || (findStudent(e.sid)||{}).suspended) return;
+      items.push({ kind:'fixo', sid:e.sid, name:nameOf(e.sid, e.name), time:e.time, origTime:e.time });
+    });
+  } else students.forEach(s=>{
     if(s.suspended) return;
     const sc = s.schedule && s.schedule[dayKey];
     if(sc && sc.active && sc.time) items.push({ kind:'fixo', sid:s.id, name:s.name, time:sc.time, origTime:sc.time });
@@ -257,14 +320,26 @@ function render(){
     <div class="wrap">${view==='dia' ? renderDay() : renderWeek(changedDays)}</div>
     ${view==='dia' ? `<button class="fab" onclick="openAdd()">+ Incluir aluno</button>` : ''}`;
   const top = document.getElementById('top'); if(top) document.documentElement.style.setProperty('--top-h', top.offsetHeight + 'px');
+  document.body.classList.toggle('day-mode', !!document.getElementById('wheel'));
+  initWheel();
 }
+// não redesenha enquanto a lista do dia está sendo girada
+function canRender(){ return !sheetOpen && !(view==='dia' && Date.now()-lastScroll < 2500); }
+const commitBtn = () => Object.keys(plan).length ? `<button class="commit" onclick="openCommit()">✓ Atualizar horário</button>` : '';
 
 function renderDay(){
   const d = buildDay(day);
   const free = d.times.filter(t=>toMin(t)>=300 && toMin(t)<=1260 && !d.byTime[t].some(isActive)).length;
+  const now = new Date(), g = now.getDay();
+  const isToday = g>0 && DAYS[g-1].k===day; // o plano das férias vale para o dia da semana de hoje
+  const nowMin = now.getHours()*60 + now.getMinutes() + now.getSeconds()/60;
+  let nextMarked = false, order = 0;
+  autoFocus = null;
   const slots = d.times.map(t=>{
     const list = d.byTime[t];
     const n = list.filter(isActive).length;
+    const st = toMin(t), en = st + LESSON_MIN;
+    const end = `${String(Math.floor(en/60)%24).padStart(2,'0')}:${String(en%60).padStart(2,'0')}`;
     const people = list.map(it=>{
       let tag = '', c = '';
       if(it.kind==='swap'){ c='swap'; tag = `no lugar de ${esc(firstName(it.fromName))}`; }
@@ -276,13 +351,88 @@ function renderDay(){
         <span class="n">${esc(it.name)}</span>${tag ? `<span class="tag">${tag}</span>` : ''}</button>`;
     }).join('');
     const add = n < CAPACITY ? `<button class="addbtn" onclick="openAdd('${esc(t)}')">${n ? '+ Incluir aluno' : 'Livre · + Incluir aluno'}</button>` : '';
-    return `<div class="slot ${n?'':'empty-slot'}" id="t-${t.replace(':','')}"><div class="time">${esc(t)}<small class="${n>CAPACITY?'full':''}">${n}/${CAPACITY}</small></div><div class="people">${people}${add}</div></div>`;
+    if(!list.length){
+      return `<div class="cs free" data-t="${esc(t)}"><div class="hd"><div><div class="k">Livre</div><div class="big">${esc(t)}</div></div></div>${add}</div>`;
+    }
+    if(n) order++;
+    let cls = '', k = n ? `${order}ª aula` : 'Horário vago', rem = '', bar = '';
+    if(isToday && n){
+      if(en <= nowMin){
+        cls = 'past'; k = `Concluída · ${order}ª aula`;
+        rem = `<div class="rem"><b class="done">✓</b></div>`;
+        bar = `<div class="bar"><span style="width:100%"></span></div>`;
+      } else if(st <= nowMin){
+        cls = 'live'; k = `Agora · ${order}ª aula`;
+        if(!nextMarked){ autoFocus = t; nextMarked = true; }
+        rem = `<div class="rem"><small>Faltam</small><b>${Math.ceil(en - nowMin)}<i>min</i></b></div>`;
+        bar = `<div class="bar"><span style="width:${Math.round((nowMin-st)/LESSON_MIN*100)}%"></span></div>`;
+      } else {
+        if(!nextMarked){ k = `Próxima · ${order}ª aula`; autoFocus = t; nextMarked = true; }
+        const left = Math.ceil(st - nowMin);
+        rem = `<div class="rem"><small>Começa em</small><b>${left < 60 ? `${left}<i>min</i>` : `${Math.floor(left/60)}h${String(left%60).padStart(2,'0')}`}</b></div>`;
+        bar = `<div class="bar"><span style="width:0"></span></div>`;
+      }
+    } else {
+      rem = `<div class="rem"><small>Alunos</small><b>${n}<i>/${CAPACITY}</i></b></div>`;
+    }
+    if(!autoFocus && n && !isToday) autoFocus = t;
+    return `<div class="cs ${cls}" data-t="${esc(t)}">
+      <div class="k ${cls==='live'?'live':''}">${k}</div>
+      <div class="hd"><div><div class="big">${esc(t)}</div>
+        <div class="range">${esc(t)} – ${end} · <span class="${n>CAPACITY?'full':''}">${n}/${CAPACITY}</span></div></div>${rem}</div>
+      <div class="people">${people}${add}</div>${bar}</div>`;
   }).join('');
+  if(!autoFocus) autoFocus = d.times.find(t=>d.byTime[t].some(isActive)) || d.times[0];
   return `<div class="summary">
       <span class="pill"><b>${d.total}</b> ${d.total===1?'aula':'aulas'}</span>
-      <span class="pill free"><b>${free}</b> ${free===1?'horário livre':'horários livres'}</span>
+      <span class="pill free"><b>${free}</b> livres</span>
       ${d.changes ? `<span class="pill alt"><b>${d.changes}</b> ${d.changes===1?'mudança':'mudanças'}</span>` : ''}
-    </div>${slots}`;
+      ${commitBtn()}
+    </div><div class="wheel" id="wheel"><div class="sp" id="sp-top"></div>${slots}<div class="sp" id="sp-bot"></div></div>`;
+}
+
+/* Roleta do dia: o cartão mais perto do centro fica grande e azul, os outros encolhem */
+const LESSON_MIN = 60;
+let focusTime = null;   // horário centralizado (mantido quando a tela é redesenhada)
+let autoFocus = null;   // aula de agora / próxima (ou a primeira com alunos)
+let lastScroll = 0;     // evita redesenhar enquanto o dedo está girando a lista
+function initWheel(){
+  const w = document.getElementById('wheel'); if(!w) return;
+  w.style.height = Math.max(240, window.innerHeight - w.getBoundingClientRect().top) + 'px';
+  const cards = w.querySelectorAll('.cs');
+  const first = cards[0], last = cards[cards.length-1];
+  document.getElementById('sp-top').style.height = Math.max(0, w.clientHeight/2 - first.offsetHeight/2) + 'px';
+  document.getElementById('sp-bot').style.height = Math.max(70, w.clientHeight/2 - last.offsetHeight/2 + 35) + 'px';
+  const target = [...cards].find(c=>c.dataset.t===focusTime) || [...cards].find(c=>c.dataset.t===autoFocus) || first;
+  w.scrollTop = target.offsetTop + target.offsetHeight/2 - w.clientHeight/2;
+  let raf = 0;
+  w.addEventListener('scroll', ()=>{ lastScroll = Date.now(); if(!raf) raf = requestAnimationFrame(()=>{ raf = 0; wheelFx(); }); }, {passive:true});
+  // tocar num cartão de fora do centro primeiro gira a lista até ele
+  w.addEventListener('click', e=>{
+    const c = e.target.closest('.cs');
+    if(c && !c.classList.contains('center')){
+      e.preventDefault(); e.stopPropagation();
+      w.scrollTo({ top: c.offsetTop + c.offsetHeight/2 - w.clientHeight/2, behavior:'smooth' });
+    }
+  }, true);
+  wheelFx();
+}
+function wheelFx(){
+  const w = document.getElementById('wheel'); if(!w) return;
+  const half = w.clientHeight/2, mid = w.scrollTop + half;
+  let best = null, bd = Infinity;
+  w.querySelectorAll('.cs').forEach(c=>{
+    const off = c.offsetTop + c.offsetHeight/2 - mid;
+    const a = Math.min(Math.abs(off)/half, 1);
+    const s = 1 - a*0.2;
+    // puxa o cartão encolhido para perto do centro, para não abrir buraco entre eles
+    const pull = -Math.sign(off) * c.offsetHeight*(1-s)/2;
+    c.style.transform = `translateY(${pull.toFixed(1)}px) scale(${s.toFixed(3)})`;
+    c.style.opacity = (1 - a*0.55).toFixed(2);
+    if(Math.abs(off) < bd){ bd = Math.abs(off); best = c; }
+  });
+  w.querySelectorAll('.cs.center').forEach(c=>{ if(c!==best) c.classList.remove('center'); });
+  if(best){ best.classList.add('center'); focusTime = best.dataset.t; }
 }
 
 function renderWeek(changedDays){
@@ -309,11 +459,12 @@ function renderWeek(changedDays){
   });
   return `<div class="summary">
       <span class="pill"><b>${total}</b> aulas na semana</span>
-      ${nChanges ? `<span class="pill alt"><b>${nChanges}</b> ${nChanges===1?'mudança':'mudanças'}</span>` : `<span class="pill">igual ao horário principal</span>`}
+      ${nChanges ? `<span class="pill alt"><b>${nChanges}</b> ${nChanges===1?'mudança':'mudanças'}</span>` : `<span class="pill">${feriasBase ? 'horário de férias atualizado' : 'igual ao horário principal'}</span>`}
+      ${commitBtn()}
     </div>
     <div class="legend"><span><i style="background:var(--text)"></i>principal</span><span><i style="background:var(--amber)"></i>trocado</span><span><i style="background:var(--purple)"></i>mudou de horário</span><span><i style="background:var(--green)"></i>incluído</span><span><i style="background:var(--text-faint)"></i>excluído</span></div>
     <div class="grid">${cells}</div>
-    ${nChanges ? `<div class="tools"><button class="linkbtn" onclick="confirmReset()">Recomeçar do horário principal</button></div>` : ''}`;
+    ${nChanges || feriasBase ? `<div class="tools"><button class="linkbtn" onclick="confirmReset()">Recomeçar do horário principal</button></div>` : ''}`;
 }
 
 function renderLogin(err){
@@ -330,12 +481,10 @@ function renderLogin(err){
 }
 
 /* ---------- navegação ---------- */
-function setView(v){ view = v; render(); window.scrollTo(0,0); }
-function setDay(k){ day = k; render(); window.scrollTo(0,0); }
+function setView(v){ view = v; focusTime = null; render(); window.scrollTo(0,0); }
+function setDay(k){ day = k; focusTime = null; render(); window.scrollTo(0,0); }
 function openDayAt(k, t){
-  day = k; view = 'dia'; render();
-  const el = document.getElementById('t-' + t.replace(':',''));
-  if(el){ el.scrollIntoView({block:'center'}); el.classList.add('flash'); }
+  day = k; view = 'dia'; focusTime = t; window.scrollTo(0,0); render();
 }
 
 /* ---------- login (mesma senha do admin do app) ---------- */
@@ -439,7 +588,7 @@ function openAdd(time){
   if(!time){ const s = document.getElementById('tm'); s.insertAdjacentHTML('afterbegin', '<option value="" selected>— horário —</option>'); }
 }
 function confirmReset(){
-  openSheet(`<h2>Recomeçar?</h2><div class="sub">Apaga todas as ${Object.keys(plan).length} mudanças das férias e volta ao horário principal. Não dá para desfazer.</div>
+  openSheet(`<h2>Recomeçar?</h2><div class="sub">Apaga ${feriasBase ? 'o horário de férias atualizado e ' : ''}todas as mudanças das férias e volta ao horário principal. Não dá para desfazer.</div>
     <div class="row2"><button class="btn ghost" onclick="closeSheet()">Cancelar</button><button class="btn red" onclick="resetAll(this)">Apagar mudanças</button></div>`);
 }
 
@@ -488,14 +637,62 @@ async function resetAll(btn){
   btn.disabled = true; btn.textContent = 'Apagando…';
   try{
     writeSeq++;
-    await api('feriasAjustes', { method:'DELETE' });
-    plan = {};
-    closeSheet(); render(); toast('Voltou ao horário principal');
+    await api('', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ feriasAjustes:null, feriasBase:null }) });
+    plan = {}; feriasBase = null;
+    closeSheet(); focusTime = null; render(); toast('Voltou ao horário principal');
   }catch(e){ btn.disabled = false; btn.textContent = 'Apagar mudanças'; toast('Não foi possível apagar. Verifique a internet.'); }
 }
 
+/* ---------- atualizar o horário das férias ----------
+   Fixa o plano atual (horário-base + mudanças) como o novo horário-base
+   das férias e zera as mudanças. Fica só nas férias: o cadastro e o
+   horário principal do app não são alterados. */
+function snapshotBase(){
+  const base = {};
+  DAYS.forEach(({k})=>{
+    const d = buildDay(k);
+    d.times.forEach(t=>d.byTime[t].filter(isActive).forEach(it=>{
+      let sid = it.sid;
+      if(it.kind==='swap' || it.kind==='add') sid = it.adj.toSid || null;
+      const id = uid() + Object.keys(base).length;
+      base[id] = { sid: sid || ('x_' + id), name: it.name, day: k, time: it.time };
+    }));
+  });
+  return base;
+}
+function describe(a){
+  const who = a.toSid ? nameOf(a.toSid, a.toName) : a.toName;
+  return {
+    remove: `${nameOf(a.sid,a.name)} sai de ${dayInfo(a.day).n} ${a.time}`,
+    swap: `${dayInfo(a.day).n} ${a.time}: ${who} no lugar de ${nameOf(a.sid,a.name)}`,
+    move: `${nameOf(a.sid,a.name)}: ${dayInfo(a.fromDay).n} ${a.from} → ${dayInfo(a.toDay).n} ${a.to}`,
+    add: `${who} entra em ${dayInfo(a.day).n} ${a.time}`
+  }[a.type] || '';
+}
+function openCommit(){
+  const adj = Object.values(plan).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
+  openSheet(`<h2>Atualizar horário</h2>
+    <div class="sub">As ${adj.length} mudanças viram o horário fixo <b>das férias</b> e deixam de aparecer coloridas. O horário principal do app e o cadastro dos alunos não mudam.</div>
+    <div class="diff">${adj.map(a=>`<div>${esc(describe(a))}</div>`).join('')}</div>
+    <div class="row2"><button class="btn ghost" onclick="closeSheet()">Cancelar</button><button class="btn pri" style="background:var(--green);color:#06210f" onclick="commitPlan(this)">Atualizar horário</button></div>`);
+}
+async function commitPlan(btn){
+  btn.disabled = true; btn.textContent = 'Atualizando…';
+  const base = snapshotBase();
+  try{
+    writeSeq++;
+    // grava o novo horário-base e apaga as mudanças de uma vez só
+    await api('', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ feriasBase: base, feriasAjustes: null }) });
+    feriasBase = base; plan = {};
+    closeSheet(); render(); toast('Horário das férias atualizado');
+  }catch(e){
+    btn.disabled = false; btn.textContent = 'Atualizar horário';
+    toast('Não foi possível atualizar. Verifique a internet e tente de novo.');
+  }
+}
+
 /* ---------- início ---------- */
-async function refresh(){ try{ await loadPlan(); if(!sheetOpen) render(); }catch(e){} }
+async function refresh(){ try{ await loadPlan(); if(canRender()) render(); }catch(e){} }
 async function start(){
   document.getElementById('app').innerHTML = `<div class="loading">Carregando horários…</div>`;
   try{
@@ -507,7 +704,11 @@ async function start(){
   }
   clearInterval(start._a); clearInterval(start._s);
   start._a = setInterval(()=>{ if(!sheetOpen && document.visibilityState==='visible') refresh(); }, 15000);
-  start._s = setInterval(async ()=>{ if(!sheetOpen && document.visibilityState==='visible'){ try{ await loadStudentsLight(); render(); }catch(e){} } }, 180000);
+  start._s = setInterval(async ()=>{ if(!sheetOpen && document.visibilityState==='visible'){ try{ await loadStudentsLight(); if(canRender()) render(); }catch(e){} } }, 180000);
+  // contagem regressiva da aula (atualiza mesmo sem internet)
+  clearInterval(start._t);
+  start._t = setInterval(()=>{ if(view==='dia' && canRender() && document.visibilityState==='visible') render(); }, 30000);
+  window.onresize = ()=>{ if(view==='dia' && !sheetOpen) render(); };
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && !sheetOpen) refresh(); });
 }
 
