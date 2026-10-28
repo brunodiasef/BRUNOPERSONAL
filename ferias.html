@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Férias · Bruno Personal</title>
+<link rel="manifest" href="ferias-manifest.json">
+<meta name="theme-color" content="#0B0C10">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0C10; --surface:#15171F; --surface-2:#1C1F2A; --surface-3:#262A38;
+    --border:#272B38; --text:#F1F0EC; --text-soft:#989BAC; --text-faint:#6A6D7C;
+    --blue:#4C6BFF; --blue-dim:rgba(76,107,255,0.16);
+    --amber:#F2A93B; --amber-dim:rgba(242,169,59,0.16);
+    --green:#33C97A; --green-dim:rgba(51,201,122,0.16);
+    --red:#FF5C4D; --red-dim:rgba(255,92,77,0.16);
+    --purple:#B07CFF; --purple-dim:rgba(176,124,255,0.16);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  body{min-height:100vh;padding-bottom:calc(96px + env(safe-area-inset-bottom));}
+  button{font-family:inherit;cursor:pointer;border:none;-webkit-tap-highlight-color:transparent;}
+  input,select{font-family:inherit;font-size:16px;}
+  h1,h2,h3{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.03em;margin:0;}
+  .wrap{max-width:640px;margin:0 auto;padding:0 16px;}
+
+  /* topo */
+  .top{position:sticky;top:0;z-index:20;background:rgba(11,12,16,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top);}
+  .top-row{display:flex;align-items:center;gap:10px;padding:10px 0;}
+  .top-row img{width:44px;height:28px;object-fit:contain;}
+  .top-row h1{font-size:18px;flex:1;display:flex;align-items:center;gap:8px;}
+  .badge{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;background:var(--amber-dim);color:var(--amber);padding:3px 7px;border-radius:6px;}
+  .seg{display:flex;background:var(--surface-2);border-radius:10px;padding:3px;}
+  .seg button{background:none;color:var(--text-soft);font-weight:600;font-size:13px;padding:7px 14px;border-radius:8px;}
+  .seg button.on{background:var(--blue);color:#fff;}
+  .days{display:flex;gap:6px;padding:0 0 10px;}
+  .days button{flex:1;background:var(--surface-2);color:var(--text-soft);font-weight:700;font-size:12.5px;padding:9px 0;border-radius:10px;position:relative;}
+  .days button.on{background:var(--blue);color:#fff;}
+  .days button .dot{position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--amber);}
+
+  .summary{display:flex;gap:8px;margin:14px 0 6px;flex-wrap:wrap;align-items:center;}
+  .pill{font-size:12px;font-weight:600;padding:6px 10px;border-radius:20px;background:var(--surface-2);color:var(--text-soft);}
+  .pill b{color:var(--text);}
+  .pill.alt{background:var(--amber-dim);color:var(--amber);}
+  .pill.alt b{color:var(--amber);}
+  .pill.free{background:var(--green-dim);color:var(--green);}
+  .pill.free b{color:var(--green);}
+
+  /* dia */
+  .slot{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .slot:last-child{border-bottom:none;}
+  .slot.flash{animation:flash 1.4s ease;}
+  @keyframes flash{0%,40%{background:var(--blue-dim);}100%{background:transparent;}}
+  .time{width:58px;flex-shrink:0;font-family:'Oswald',sans-serif;font-size:20px;font-weight:600;padding-top:6px;}
+  .time small{display:block;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:var(--text-faint);letter-spacing:0;}
+  .time small.full{color:var(--red);}
+  .slot.empty-slot .time{color:var(--text-faint);}
+  .people{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .p{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:10px;padding:10px 12px;color:var(--text);font-size:15px;font-weight:600;}
+  .p .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .p .tag{font-size:11px;font-weight:600;padding:3px 8px;border-radius:12px;white-space:nowrap;}
+  .p.swap{border-left-color:var(--amber);} .p.swap .tag{background:var(--amber-dim);color:var(--amber);}
+  .p.moved-in{border-left-color:var(--purple);} .p.moved-in .tag{background:var(--purple-dim);color:var(--purple);}
+  .p.add{border-left-color:var(--green);} .p.add .tag{background:var(--green-dim);color:var(--green);}
+  .p.off{border-left-color:var(--surface-3);background:transparent;color:var(--text-faint);}
+  .p.off .n{text-decoration:line-through;}
+  .p.off .tag{background:var(--red-dim);color:var(--red);}
+  .addbtn{width:100%;background:none;border:1.5px dashed var(--border);color:var(--text-soft);font-size:13px;font-weight:600;padding:9px 12px;border-radius:10px;text-align:left;}
+  .slot.empty-slot .addbtn{color:var(--green);border-color:rgba(51,201,122,.35);}
+  .addbtn:active{border-color:var(--green);color:var(--green);}
+
+  /* grade da semana */
+  .grid{display:grid;grid-template-columns:38px repeat(6,1fr);gap:3px;margin-top:12px;}
+  .gh{font-size:11px;font-weight:700;color:var(--text-soft);text-align:center;padding:6px 0;position:sticky;top:var(--top-h,96px);background:var(--bg);z-index:5;}
+  .gh.dot{color:var(--amber);}
+  .gt{font-size:11px;font-weight:700;color:var(--text-faint);padding-top:6px;font-variant-numeric:tabular-nums;}
+  .gc{min-height:34px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:3px 3px;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-width:0;color:var(--text);text-align:left;}
+  .gc.free{background:transparent;border-style:dashed;border-color:#20232e;}
+  .gc.full{border-color:rgba(255,92,77,.5);}
+  .gc span{font-size:9.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gc .a{color:var(--amber);} .gc .m{color:var(--purple);} .gc .e{color:var(--green);}
+  .gc .x{color:var(--text-faint);text-decoration:line-through;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text-soft);margin:14px 0 4px;}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle;}
+
+  .tools{display:flex;justify-content:center;margin:26px 0 8px;}
+  .linkbtn{background:none;color:var(--text-soft);font-size:13px;font-weight:600;text-decoration:underline;padding:8px;}
+
+  .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom));z-index:30;background:var(--blue);color:#fff;font-weight:700;font-size:15px;padding:15px 24px;border-radius:30px;box-shadow:0 10px 28px rgba(0,0,0,.5);}
+
+  /* folha de ações */
+  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s;}
+  .backdrop.open{opacity:1;pointer-events:auto;}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--surface);border-radius:20px 20px 0 0;border-top:1px solid var(--border);padding:8px 16px calc(20px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto;transform:translateY(105%);transition:transform .25s cubic-bezier(.2,.8,.2,1);max-height:88vh;overflow:auto;}
+  .sheet.open{transform:none;}
+  .grab{width:40px;height:4px;border-radius:4px;background:var(--surface-3);margin:4px auto 14px;}
+  .sheet h2{font-size:19px;margin-bottom:2px;}
+  .sheet .sub{font-size:13px;color:var(--text-soft);margin-bottom:16px;line-height:1.5;}
+  .act{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface-2);color:var(--text);font-size:15px;font-weight:600;padding:14px;border-radius:12px;margin-bottom:8px;text-align:left;}
+  .act .ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+  .act small{display:block;font-size:12px;font-weight:500;color:var(--text-soft);margin-top:2px;}
+  .act.danger{color:var(--red);}
+  label.f{display:block;font-size:12px;font-weight:600;color:var(--text-soft);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.06em;}
+  .in{width:100%;background:var(--surface-2);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:12px;outline:none;}
+  .in:focus{border-color:var(--blue);}
+  select.in{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-soft) 50%),linear-gradient(135deg,var(--text-soft) 50%,transparent 50%);background-position:calc(100% - 18px) 52%,calc(100% - 13px) 52%;background-size:5px 5px;background-repeat:no-repeat;}
+  .two{display:flex;gap:8px;} .two > div{flex:1;}
+  .row2{display:flex;gap:8px;margin-top:18px;}
+  .btn{flex:1;padding:14px;border-radius:12px;font-weight:700;font-size:15px;}
+  .btn.pri{background:var(--blue);color:#fff;}
+  .btn.ghost{background:var(--surface-2);color:var(--text);}
+  .btn.red{background:var(--red);color:#fff;}
+  .btn:disabled{opacity:.5;}
+
+  /* login */
+  .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .login .card{width:100%;max-width:340px;text-align:center;}
+  .login img{width:200px;max-width:70%;margin-bottom:18px;}
+  .login h1{font-size:22px;margin-bottom:6px;}
+  .login p{font-size:13px;color:var(--text-soft);margin:0 0 18px;}
+  .login .err{background:var(--red-dim);color:var(--red);font-size:13px;padding:10px;border-radius:10px;margin-bottom:12px;}
+  .login .btn{width:100%;margin-top:10px;}
+
+  .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--surface-3);color:var(--text);font-size:13.5px;font-weight:600;padding:11px 16px;border-radius:12px;z-index:60;opacity:0;transition:all .25s;pointer-events:none;max-width:90vw;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .loading,.empty{min-height:60vh;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--text-soft);font-size:14px;text-align:center;}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">Carregando…</div></div>
+<div class="backdrop" id="backdrop" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   Horário de FÉRIAS — planejamento da semana-modelo.
+   - Base: o horário principal (horários fixos do cadastro de alunos;
+     só nome, horário e "suspenso" são baixados, sem as fotos).
+   - Mostra todos os horários de 5h a 21h, de segunda a sábado.
+   - Mudanças (trocar, mudar horário, excluir, incluir) valem para todas
+     as semanas das férias e ficam em /feriasAjustes/{id}, sem mexer
+     no cadastro, no financeiro nem na agenda normal.
+   ========================================================= */
+const DB = "https://bruno-personal-1fb4b-default-rtdb.firebaseio.com";
+const SESSION_KEY = 'bp_agenda_sessao'; // mesmo login da agenda
+const DAYS = [
+  {k:'segunda', n:'Segunda', s:'Seg'}, {k:'terca', n:'Terça', s:'Ter'}, {k:'quarta', n:'Quarta', s:'Qua'},
+  {k:'quinta', n:'Quinta', s:'Qui'}, {k:'sexta', n:'Sexta', s:'Sex'}, {k:'sabado', n:'Sábado', s:'Sáb'}
+];
+const HOURS = Array.from({length:17}, (_,i)=>`${String(5+i).padStart(2,'0')}:00`); // 05:00 … 21:00
+const CAPACITY = 3;
+
+let students = [];     // [{id, name, suspended, schedule}]
+let plan = {};         // { id: ajuste }
+let view = 'dia';
+let day = (()=>{ const g = new Date().getDay(); return DAYS[(g===0 ? 1 : g) - 1].k; })();
+let sheetOpen = false;
+let writeSeq = 0;
+
+/* ---------- utilidades ---------- */
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function firstName(n){ return String(n||'').trim().split(/\s+/)[0].split('/')[0]; }
+function toMin(t){ const [h,m] = String(t||'0:0').split(':').map(Number); return h*60+(m||0); }
+function dayInfo(k){ return DAYS.find(d=>d.k===k) || DAYS[0]; }
+async function api(path, opts){
+  const ctrl = new AbortController(); const timer = setTimeout(()=>ctrl.abort(), 15000);
+  try{
+    const res = await fetch(`${DB}/${path}.json`, {...(opts||{}), signal:ctrl.signal});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
+  } finally { clearTimeout(timer); }
+}
+function toast(msg){
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+/* ---------- dados ---------- */
+async function loadStudentsLight(){
+  const res = await fetch(`${DB}/ptManagerData/students.json?shallow=true`);
+  const idx = Object.keys(await res.json() || {});
+  const list = await Promise.all(idx.map(async i=>{
+    const [id, name, suspended, schedule] = await Promise.all(
+      ['id','name','suspended','schedule'].map(f=>api(`ptManagerData/students/${i}/${f}`).catch(()=>null))
+    );
+    return { id: id || ('idx'+i), name: name || 'Sem nome', suspended: !!suspended, schedule: schedule || {} };
+  }));
+  students = list.sort((a,b)=>a.name.localeCompare(b.name,'pt-BR',{sensitivity:'base'}));
+}
+async function loadPlan(){
+  const seq = writeSeq;
+  const data = await api('feriasAjustes') || {};
+  if(seq !== writeSeq) return; // houve gravação durante a leitura
+  plan = data;
+}
+function findStudent(id){ return students.find(s=>s.id===id); }
+function nameOf(id, fallback){ const s = findStudent(id); return s ? s.name : (fallback || 'Aluno'); }
+
+/* Monta um dia da semana de férias: horário principal + mudanças do plano */
+function buildDay(dayKey){
+  const items = [];
+  students.forEach(s=>{
+    if(s.suspended) return;
+    const sc = s.schedule && s.schedule[dayKey];
+    if(sc && sc.active && sc.time) items.push({ kind:'fixo', sid:s.id, name:s.name, time:sc.time, origTime:sc.time });
+  });
+  const adj = Object.values(plan).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
+  const findFixed = (sid, time)=> items.find(it=>it.kind==='fixo' && it.sid===sid && it.origTime===time && !it.adj);
+  adj.forEach(a=>{
+    if(a.type==='remove' && a.day===dayKey){
+      const it = findFixed(a.sid, a.time); if(it){ it.adj = a; it.kind = 'removed'; }
+    } else if(a.type==='swap' && a.day===dayKey){
+      const it = findFixed(a.sid, a.time);
+      if(it){ it.adj = a; it.kind = 'swap'; it.fromName = it.name; it.name = a.toSid ? nameOf(a.toSid, a.toName) : a.toName; }
+    } else if(a.type==='move'){
+      if(a.fromDay===dayKey){ const it = findFixed(a.sid, a.from); if(it){ it.adj = a; it.kind = 'moved-out'; it.toDay = a.toDay; it.toTime = a.to; } }
+      if(a.toDay===dayKey) items.push({ kind:'moved-in', sid:a.sid, name:nameOf(a.sid, a.name), time:a.to, fromDay:a.fromDay, origTime:a.from, adj:a });
+    } else if(a.type==='add' && a.day===dayKey){
+      items.push({ kind:'add', sid:a.toSid || null, name: a.toSid ? nameOf(a.toSid, a.toName) : a.toName, time:a.time, adj:a, note:a.note||'' });
+    }
+  });
+  const byTime = {};
+  HOURS.forEach(h=>byTime[h] = []);
+  items.forEach(it=>{ (byTime[it.time] = byTime[it.time] || []).push(it); });
+  const times = Object.keys(byTime).sort((a,b)=>toMin(a)-toMin(b));
+  const order = {fixo:0, swap:1, 'moved-in':2, add:3, removed:4, 'moved-out':5};
+  times.forEach(t=>byTime[t].sort((a,b)=>order[a.kind]-order[b.kind] || a.name.localeCompare(b.name,'pt-BR')));
+  const changes = adj.filter(a=> a.day===dayKey || a.fromDay===dayKey || a.toDay===dayKey).length;
+  return { times, byTime, total: items.filter(isActive).length, changes };
+}
+const isActive = it => it.kind!=='removed' && it.kind!=='moved-out';
+
+/* ---------- telas ---------- */
+function render(){
+  if(!sessionOk()){ renderLogin(); return; }
+  const changedDays = new Set();
+  Object.values(plan).forEach(a=>[a.day, a.fromDay, a.toDay].forEach(d=>d && changedDays.add(d)));
+  document.getElementById('app').innerHTML = `
+    <div class="top" id="top"><div class="wrap">
+      <div class="top-row">
+        <img src="abertura-logo.png" alt="">
+        <h1>Horário <span class="badge">FÉRIAS</span></h1>
+        <div class="seg">
+          <button class="${view==='dia'?'on':''}" onclick="setView('dia')">Dia</button>
+          <button class="${view==='semana'?'on':''}" onclick="setView('semana')">Semana</button>
+        </div>
+      </div>
+      ${view==='dia' ? `<div class="days">${DAYS.map(d=>`<button class="${d.k===day?'on':''}" onclick="setDay('${d.k}')">${d.s}${changedDays.has(d.k)?'<span class="dot"></span>':''}</button>`).join('')}</div>` : ''}
+    </div></div>
+    <div class="wrap">${view==='dia' ? renderDay() : renderWeek(changedDays)}</div>
+    ${view==='dia' ? `<button class="fab" onclick="openAdd()">+ Incluir aluno</button>` : ''}`;
+  const top = document.getElementById('top'); if(top) document.documentElement.style.setProperty('--top-h', top.offsetHeight + 'px');
+}
+
+function renderDay(){
+  const d = buildDay(day);
+  const free = d.times.filter(t=>toMin(t)>=300 && toMin(t)<=1260 && !d.byTime[t].some(isActive)).length;
+  const slots = d.times.map(t=>{
+    const list = d.byTime[t];
+    const n = list.filter(isActive).length;
+    const people = list.map(it=>{
+      let tag = '', c = '';
+      if(it.kind==='swap'){ c='swap'; tag = `no lugar de ${esc(firstName(it.fromName))}`; }
+      else if(it.kind==='moved-in'){ c='moved-in'; tag = it.fromDay===day ? `veio das ${esc(it.origTime)}` : `veio de ${dayInfo(it.fromDay).s} ${esc(it.origTime)}`; }
+      else if(it.kind==='add'){ c='add'; tag = it.note ? esc(it.note) : 'incluído'; }
+      else if(it.kind==='removed'){ c='off'; tag = 'excluído'; }
+      else if(it.kind==='moved-out'){ c='off'; tag = it.toDay===day ? `foi para ${esc(it.toTime)}` : `foi p/ ${dayInfo(it.toDay).s} ${esc(it.toTime)}`; }
+      return `<button class="p ${c}" onclick='openItem(${JSON.stringify({sid:it.sid, time:it.time, adj: it.adj ? it.adj.id : null, kind: it.kind})})'>
+        <span class="n">${esc(it.name)}</span>${tag ? `<span class="tag">${tag}</span>` : ''}</button>`;
+    }).join('');
+    const add = n < CAPACITY ? `<button class="addbtn" onclick="openAdd('${esc(t)}')">${n ? '+ Incluir aluno' : 'Livre · + Incluir aluno'}</button>` : '';
+    return `<div class="slot ${n?'':'empty-slot'}" id="t-${t.replace(':','')}"><div class="time">${esc(t)}<small class="${n>CAPACITY?'full':''}">${n}/${CAPACITY}</small></div><div class="people">${people}${add}</div></div>`;
+  }).join('');
+  return `<div class="summary">
+      <span class="pill"><b>${d.total}</b> ${d.total===1?'aula':'aulas'}</span>
+      <span class="pill free"><b>${free}</b> ${free===1?'horário livre':'horários livres'}</span>
+      ${d.changes ? `<span class="pill alt"><b>${d.changes}</b> ${d.changes===1?'mudança':'mudanças'}</span>` : ''}
+    </div>${slots}`;
+}
+
+function renderWeek(changedDays){
+  const built = DAYS.map(d=>buildDay(d.k));
+  const allTimes = [...new Set(built.flatMap(b=>b.times))].sort((a,b)=>toMin(a)-toMin(b));
+  const total = built.reduce((s,b)=>s+b.total, 0);
+  const nChanges = Object.keys(plan).length;
+  let cells = `<div></div>` + DAYS.map(d=>`<div class="gh ${changedDays.has(d.k)?'dot':''}">${d.s}</div>`).join('');
+  allTimes.forEach(t=>{
+    cells += `<div class="gt">${esc(t)}</div>`;
+    DAYS.forEach((d,i)=>{
+      const list = built[i].byTime[t] || [];
+      const n = list.filter(isActive).length;
+      const names = list.map(it=>{
+        const nm = esc(firstName(it.name));
+        if(it.kind==='removed' || it.kind==='moved-out') return `<span class="x">${nm}</span>`;
+        if(it.kind==='swap') return `<span class="a">${nm}</span>`;
+        if(it.kind==='moved-in') return `<span class="m">${nm}</span>`;
+        if(it.kind==='add') return `<span class="e">${nm}</span>`;
+        return `<span>${nm}</span>`;
+      }).join('');
+      cells += `<button class="gc ${n?'':'free'} ${n>CAPACITY?'full':''}" onclick="openDayAt('${d.k}','${esc(t)}')" aria-label="${d.n} ${esc(t)}">${names}</button>`;
+    });
+  });
+  return `<div class="summary">
+      <span class="pill"><b>${total}</b> aulas na semana</span>
+      ${nChanges ? `<span class="pill alt"><b>${nChanges}</b> ${nChanges===1?'mudança':'mudanças'}</span>` : `<span class="pill">igual ao horário principal</span>`}
+    </div>
+    <div class="legend"><span><i style="background:var(--text)"></i>principal</span><span><i style="background:var(--amber)"></i>trocado</span><span><i style="background:var(--purple)"></i>mudou de horário</span><span><i style="background:var(--green)"></i>incluído</span><span><i style="background:var(--text-faint)"></i>excluído</span></div>
+    <div class="grid">${cells}</div>
+    ${nChanges ? `<div class="tools"><button class="linkbtn" onclick="confirmReset()">Recomeçar do horário principal</button></div>` : ''}`;
+}
+
+function renderLogin(err){
+  document.getElementById('app').innerHTML = `
+    <div class="login"><div class="card">
+      <img src="abertura-logo.png" alt="Bruno Personal Trainer">
+      <h1>Horário de férias</h1>
+      <p>Digite sua senha de administrador.</p>
+      ${err ? `<div class="err">${esc(err)}</div>` : ''}
+      <input type="password" id="pass" class="in" placeholder="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="btn pri" id="login-btn" onclick="doLogin()">Entrar</button>
+    </div></div>`;
+  setTimeout(()=>{ const i = document.getElementById('pass'); if(i) i.focus(); }, 50);
+}
+
+/* ---------- navegação ---------- */
+function setView(v){ view = v; render(); window.scrollTo(0,0); }
+function setDay(k){ day = k; render(); window.scrollTo(0,0); }
+function openDayAt(k, t){
+  day = k; view = 'dia'; render();
+  const el = document.getElementById('t-' + t.replace(':',''));
+  if(el){ el.scrollIntoView({block:'center'}); el.classList.add('flash'); }
+}
+
+/* ---------- login (mesma senha do admin do app) ---------- */
+function sessionOk(){ try{ return localStorage.getItem(SESSION_KEY)==='1'; }catch(e){ return false; } }
+async function doLogin(){
+  const pass = document.getElementById('pass').value;
+  const btn = document.getElementById('login-btn'); btn.disabled = true; btn.textContent = 'Entrando…';
+  try{
+    const real = await api('ptManagerData/adminPassword');
+    if(pass && pass === real){ try{ localStorage.setItem(SESSION_KEY,'1'); }catch(e){} await start(); }
+    else renderLogin('Senha incorreta.');
+  }catch(e){ renderLogin('Sem conexão. Tente de novo.'); }
+}
+
+/* ---------- folha de ações ---------- */
+function openSheet(html){
+  const sh = document.getElementById('sheet');
+  sh.innerHTML = `<div class="grab"></div>${html}`;
+  sheetOpen = true;
+  document.getElementById('backdrop').classList.add('open'); sh.classList.add('open');
+}
+function closeSheet(){
+  sheetOpen = false;
+  document.getElementById('backdrop').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+}
+function studentOptions(){
+  return `<option value="">— escolha o aluno —</option>` +
+    students.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.suspended?' (suspenso)':''}</option>`).join('') +
+    `<option value="__outro">Outra pessoa (digitar nome)…</option>`;
+}
+function dayOptions(sel){ return DAYS.map(d=>`<option value="${d.k}" ${d.k===sel?'selected':''}>${d.n}</option>`).join(''); }
+function timeOptions(sel){
+  const opts = [...new Set([...HOURS, sel].filter(Boolean))].sort((a,b)=>toMin(a)-toMin(b));
+  return opts.map(t=>`<option value="${t}" ${t===sel?'selected':''}>${t}</option>`).join('') + `<option value="__outro">Outro horário…</option>`;
+}
+function toggleOther(sel, wrapId){ document.getElementById(wrapId).style.display = sel.value==='__outro' ? 'block' : 'none'; }
+function readWho(){
+  const v = document.getElementById('to').value;
+  if(!v) return null;
+  if(v === '__outro'){ const n = document.getElementById('other').value.trim(); return n ? { toSid:null, toName:n } : null; }
+  return { toSid:v, toName:nameOf(v) };
+}
+function readTime(){
+  const v = document.getElementById('tm').value;
+  return v === '__outro' ? document.getElementById('tm-other').value : v;
+}
+
+let ctx = null;
+function openItem(c){
+  ctx = c;
+  const a = c.adj ? plan[c.adj] : null;
+  const di = dayInfo(day);
+  if(a){
+    const who = a.toSid || a.toName ? (a.toSid ? nameOf(a.toSid, a.toName) : a.toName) : nameOf(a.sid, a.name);
+    const what = {
+      remove: `${nameOf(a.sid,a.name)} excluído(a) das ${a.time}`,
+      swap: `${nameOf(a.sid,a.name)} → ${who}`,
+      move: `${nameOf(a.sid,a.name)}: ${dayInfo(a.fromDay).n} ${a.from} → ${dayInfo(a.toDay).n} ${a.to}`,
+      add: `${who} incluído(a) às ${a.time}`
+    }[a.type];
+    openSheet(`<h2>${esc(a.type==='move' || a.type==='remove' ? nameOf(a.sid,a.name) : who)}</h2>
+      <div class="sub">${esc(what)}<br>Mudança das férias</div>
+      <button class="act danger" onclick="undo('${a.id}')"><span class="ic" style="background:var(--red-dim)">↺</span><span>${a.type==='add'?'Tirar este aluno':'Desfazer mudança'}<small>${a.type==='add'?'Remove a inclusão deste horário':'Volta ao horário principal'}</small></span></button>
+      <button class="act" onclick="closeSheet()"><span class="ic" style="background:var(--surface-3)">✕</span>Fechar</button>`);
+    return;
+  }
+  openSheet(`<h2>${esc(nameOf(c.sid))}</h2><div class="sub">${esc(di.n)} · ${esc(c.time)} · horário principal</div>
+    <button class="act" onclick="formSwap()"><span class="ic" style="background:var(--amber-dim);color:var(--amber)">⇄</span><span>Trocar por outro aluno<small>Outra pessoa fica neste horário</small></span></button>
+    <button class="act" onclick="formMove()"><span class="ic" style="background:var(--purple-dim);color:var(--purple)">⏱</span><span>Mudar dia / horário<small>Leva este aluno para outro horário</small></span></button>
+    <button class="act danger" onclick="saveRemove()"><span class="ic" style="background:var(--red-dim)">✕</span><span>Excluir horário<small>Este aluno não treina neste horário nas férias</small></span></button>`);
+}
+function formSwap(){
+  openSheet(`<h2>Trocar aluno</h2><div class="sub">${esc(dayInfo(day).n)} · ${esc(ctx.time)} · no lugar de ${esc(nameOf(ctx.sid))}</div>
+    <label class="f">Quem fica no horário</label>
+    <select class="in" id="to" onchange="toggleOther(this,'other-wrap')">${studentOptions()}</select>
+    <div id="other-wrap" style="display:none"><label class="f">Nome</label><input class="in" id="other" placeholder="Nome da pessoa"></div>
+    <div class="row2"><button class="btn ghost" onclick="openItem(ctx)">Voltar</button><button class="btn pri" onclick="saveSwap(this)">Salvar</button></div>`);
+}
+function formMove(){
+  openSheet(`<h2>Mudar dia / horário</h2><div class="sub">${esc(nameOf(ctx.sid))} · hoje em ${esc(dayInfo(day).n)} ${esc(ctx.time)}</div>
+    <div class="two">
+      <div><label class="f">Dia</label><select class="in" id="dy">${dayOptions(day)}</select></div>
+      <div><label class="f">Horário</label><select class="in" id="tm" onchange="toggleOther(this,'tm-wrap')">${timeOptions(ctx.time)}</select></div>
+    </div>
+    <div id="tm-wrap" style="display:none"><label class="f">Outro horário</label><input type="time" class="in" id="tm-other" step="300"></div>
+    <div class="row2"><button class="btn ghost" onclick="openItem(ctx)">Voltar</button><button class="btn pri" onclick="saveMove(this)">Salvar</button></div>`);
+}
+function openAdd(time){
+  openSheet(`<h2>Incluir aluno</h2><div class="sub">${esc(dayInfo(day).n)}${time ? ' · '+esc(time) : ''} · nas férias</div>
+    <div class="two">
+      <div><label class="f">Dia</label><select class="in" id="dy">${dayOptions(day)}</select></div>
+      <div><label class="f">Horário</label><select class="in" id="tm" onchange="toggleOther(this,'tm-wrap')">${timeOptions(time || '')}</select></div>
+    </div>
+    <div id="tm-wrap" style="display:none"><label class="f">Outro horário</label><input type="time" class="in" id="tm-other" step="300"></div>
+    <label class="f">Aluno</label>
+    <select class="in" id="to" onchange="toggleOther(this,'other-wrap')">${studentOptions()}</select>
+    <div id="other-wrap" style="display:none"><label class="f">Nome</label><input class="in" id="other" placeholder="Nome da pessoa"></div>
+    <label class="f">Observação (opcional)</label><input class="in" id="note" placeholder="Ex.: só em janeiro" maxlength="40">
+    <div class="row2"><button class="btn ghost" onclick="closeSheet()">Cancelar</button><button class="btn pri" onclick="saveAdd(this)">Salvar</button></div>`);
+  if(!time){ const s = document.getElementById('tm'); s.insertAdjacentHTML('afterbegin', '<option value="" selected>— horário —</option>'); }
+}
+function confirmReset(){
+  openSheet(`<h2>Recomeçar?</h2><div class="sub">Apaga todas as ${Object.keys(plan).length} mudanças das férias e volta ao horário principal. Não dá para desfazer.</div>
+    <div class="row2"><button class="btn ghost" onclick="closeSheet()">Cancelar</button><button class="btn red" onclick="resetAll(this)">Apagar mudanças</button></div>`);
+}
+
+/* ---------- gravação ---------- */
+async function putAdj(a, btn){
+  if(btn){ btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try{
+    a.id = uid(); a.createdAt = new Date().toISOString();
+    writeSeq++;
+    await api(`feriasAjustes/${a.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(a) });
+    plan[a.id] = a;
+    closeSheet(); render(); toast('Mudança salva');
+  }catch(e){
+    if(btn){ btn.disabled = false; btn.textContent = 'Salvar'; }
+    toast('Não foi possível salvar. Verifique a internet.');
+  }
+}
+function saveRemove(){ return putAdj({ type:'remove', sid:ctx.sid, name:nameOf(ctx.sid), day, time:ctx.time }); }
+function saveSwap(btn){
+  const who = readWho(); if(!who){ toast('Escolha quem fica no horário.'); return; }
+  if(who.toSid === ctx.sid){ toast('Escolha outra pessoa.'); return; }
+  return putAdj({ type:'swap', sid:ctx.sid, name:nameOf(ctx.sid), day, time:ctx.time, ...who }, btn);
+}
+function saveMove(btn){
+  const toDay = document.getElementById('dy').value, to = readTime();
+  if(!to){ toast('Escolha o horário.'); return; }
+  if(toDay === day && to === ctx.time){ toast('Escolha outro dia ou horário.'); return; }
+  return putAdj({ type:'move', sid:ctx.sid, name:nameOf(ctx.sid), fromDay:day, from:ctx.time, toDay, to }, btn);
+}
+function saveAdd(btn){
+  const d = document.getElementById('dy').value, time = readTime();
+  if(!time){ toast('Escolha o horário.'); return; }
+  const who = readWho(); if(!who){ toast('Escolha o aluno.'); return; }
+  day = d;
+  return putAdj({ type:'add', day:d, time, note: document.getElementById('note').value.trim(), ...who }, btn);
+}
+async function undo(id){
+  try{
+    writeSeq++;
+    await api(`feriasAjustes/${id}`, { method:'DELETE' });
+    delete plan[id];
+    closeSheet(); render(); toast('Mudança desfeita');
+  }catch(e){ toast('Não foi possível desfazer. Verifique a internet.'); }
+}
+async function resetAll(btn){
+  btn.disabled = true; btn.textContent = 'Apagando…';
+  try{
+    writeSeq++;
+    await api('feriasAjustes', { method:'DELETE' });
+    plan = {};
+    closeSheet(); render(); toast('Voltou ao horário principal');
+  }catch(e){ btn.disabled = false; btn.textContent = 'Apagar mudanças'; toast('Não foi possível apagar. Verifique a internet.'); }
+}
+
+/* ---------- início ---------- */
+async function refresh(){ try{ await loadPlan(); if(!sheetOpen) render(); }catch(e){} }
+async function start(){
+  document.getElementById('app').innerHTML = `<div class="loading">Carregando horários…</div>`;
+  try{
+    await Promise.all([loadStudentsLight(), loadPlan()]);
+    render();
+  }catch(e){
+    document.getElementById('app').innerHTML = `<div class="empty"><b>Sem conexão</b><br>Não foi possível carregar.<br><br><button class="btn pri" style="flex:none;padding:12px 22px" onclick="start()">Tentar de novo</button></div>`;
+    return;
+  }
+  clearInterval(start._a); clearInterval(start._s);
+  start._a = setInterval(()=>{ if(!sheetOpen && document.visibilityState==='visible') refresh(); }, 15000);
+  start._s = setInterval(async ()=>{ if(!sheetOpen && document.visibilityState==='visible'){ try{ await loadStudentsLight(); render(); }catch(e){} } }, 180000);
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && !sheetOpen) refresh(); });
+}
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+if(sessionOk()) start(); else renderLogin();
+</script>
+</body>
+</html>
