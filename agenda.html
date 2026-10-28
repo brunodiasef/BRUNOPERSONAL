@@ -70,6 +70,43 @@
   .p.off .tag{background:var(--red-dim);color:var(--red);}
   .add{width:100%;background:none;border:1.5px dashed var(--border);color:var(--text-soft);font-size:13px;font-weight:600;padding:8px 12px;border-radius:10px;text-align:left;}
   .add:active{border-color:var(--green);color:var(--green);}
+  /* dia em roleta: o horário do centro fica grande, os vizinhos diminuem */
+  body.day-mode{padding-bottom:0;overflow:hidden;height:100vh;height:100dvh;}
+  .wheel{position:relative;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -16px;padding:0 16px;
+    -webkit-mask-image:linear-gradient(transparent,#000 9%,#000 91%,transparent);mask-image:linear-gradient(transparent,#000 9%,#000 91%,transparent);}
+  .wheel::-webkit-scrollbar{display:none;}
+  .wheel .sp{scroll-snap-align:none;}
+  .cs{position:relative;overflow:hidden;scroll-snap-align:center;margin:0 0 10px;padding:16px 18px 16px;border-radius:24px;background:var(--surface);border:1px solid var(--border);transform-origin:center;will-change:transform,opacity;}
+  .cs::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,#4C6BFF 0%,#2B45D6 100%);opacity:0;transition:opacity .25s;}
+  .cs::after{content:'';position:absolute;width:250px;height:250px;right:-120px;top:-60px;border-radius:50%;border:2px solid rgba(255,255,255,.14);opacity:0;transition:opacity .25s;pointer-events:none;}
+  .cs > *{position:relative;z-index:1;}
+  .cs.center{border-color:transparent;box-shadow:0 14px 34px rgba(43,69,214,.35);}
+  .cs.center::before,.cs.center::after{opacity:1;}
+  .cs .k{font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-soft);}
+  .cs .k.live{color:var(--blue);}
+  .cs .hd{display:flex;align-items:flex-end;gap:10px;margin:2px 0 12px;}
+  .cs .big{font-family:'Oswald',sans-serif;font-size:54px;font-weight:700;line-height:1;letter-spacing:.01em;}
+  .cs .range{font-size:14px;color:var(--text-soft);margin-top:6px;font-variant-numeric:tabular-nums;}
+  .cs .range .full{color:var(--red);font-weight:700;}
+  .cs .rem{margin-left:auto;text-align:right;}
+  .cs .rem small{display:block;font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-soft);}
+  .cs .rem b{font-family:'Oswald',sans-serif;font-size:50px;font-weight:700;line-height:1;color:#FFC93C;white-space:nowrap;}
+  .cs .rem b i{font-style:normal;font-size:22px;margin-left:2px;}
+  .cs .rem b.done{font-size:30px;color:var(--text-soft);}
+  .cs .bar{height:8px;border-radius:8px;background:var(--surface-3);margin-top:14px;overflow:hidden;}
+  .cs .bar span{display:block;height:100%;border-radius:8px;background:#FFC93C;}
+  .cs.past .bar span{background:var(--text-faint);}
+  .cs.center .k,.cs.center .range,.cs.center .rem small{color:rgba(255,255,255,.85);}
+  .cs.center .rem b.done{color:rgba(255,255,255,.75);}
+  .cs.center .bar{background:rgba(255,255,255,.22);}
+  .cs.center .p{background:rgba(255,255,255,.13);border-color:transparent;color:#fff;}
+  .cs.center .p:not(.swap):not(.moved-in):not(.extra):not(.off){border-left-color:rgba(255,255,255,.75);}
+  .cs.center .p.off{color:rgba(255,255,255,.55);border-left-color:rgba(255,255,255,.25);}
+  .cs.center .p .tag{background:rgba(0,0,0,.28);}
+  .cs.center .p.off .tag{color:#FFB3AC;}
+  .cs.center .add{border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.85);}
+  .cs .people{gap:6px;}
+
   .empty{text-align:center;color:var(--text-soft);padding:48px 16px;font-size:14px;line-height:1.6;}
   .empty b{display:block;font-family:'Oswald',sans-serif;text-transform:uppercase;color:var(--text);font-size:18px;margin-bottom:4px;}
 
@@ -289,22 +326,46 @@ function render(){
     </div></div>
     <div class="wrap">${view==='dia' ? renderDay() : renderWeek()}</div>
     ${view==='dia' && current.getDay()!==0 ? `<button class="fab" onclick="openExtra()">+ Adicionar aluno</button>` : ''}`;
+  document.body.classList.toggle('day-mode', !!document.getElementById('wheel'));
+  initWheel();
 }
+// não redesenha enquanto a lista do dia está sendo girada
+function canRender(){ return !sheetOpen && !(view==='dia' && Date.now()-lastScroll < 2500); }
 
 function renderDay(){
   if(current.getDay() === 0) return `<div class="empty"><b>Domingo</b>Sem aulas fixas.</div>`;
   const d = buildDay(current);
   if(!d.times.length) return `<div class="empty"><b>Dia livre</b>Nenhum aluno com horário neste dia.<br>Encaixar“Encaixar aula” para marcar uma aula avulsa.</div>`;
-  const now = new Date(), isToday = iso(current) === iso(now), nowMin = now.getHours()*60 + now.getMinutes();
-  let nextMarked = false;
+  const now = new Date(), isToday = iso(current) === iso(now), nowMin = now.getHours()*60 + now.getMinutes() + now.getSeconds()/60;
+  let nextMarked = false, order = 0;
+  autoFocus = null;
   const slots = d.times.map(t=>{
     const list = d.byTime[t];
     const n = list.filter(isActive).length;
-    let cls = '';
+    const st = toMin(t), en = st + LESSON_MIN;
+    if(n) order++;
+    let cls = '', k = n ? `${order}ª aula` : 'Horário vago', rem = '', bar = '';
     if(isToday){
-      if(toMin(t) + 60 <= nowMin) cls = 'past';
-      else if(!nextMarked && n){ cls = 'now'; nextMarked = true; }
+      if(en <= nowMin){
+        cls = 'past'; if(n) k = `Concluída · ${order}ª aula`;
+        rem = `<div class="rem"><b class="done">✓</b></div>`;
+        bar = `<div class="bar"><span style="width:100%"></span></div>`;
+      } else if(st <= nowMin && n){
+        cls = 'live'; k = `Agora · ${order}ª aula`;
+        if(!nextMarked){ autoFocus = t; nextMarked = true; }
+        const left = Math.ceil(en - nowMin);
+        rem = `<div class="rem"><small>Faltam</small><b>${left}<i>min</i></b></div>`;
+        bar = `<div class="bar"><span style="width:${Math.round((nowMin-st)/LESSON_MIN*100)}%"></span></div>`;
+      } else {
+        if(!nextMarked && n){ k = `Próxima · ${order}ª aula`; autoFocus = t; nextMarked = true; }
+        const left = Math.ceil(st - nowMin);
+        rem = `<div class="rem"><small>Começa em</small><b>${left < 60 ? `${left}<i>min</i>` : `${Math.floor(left/60)}h${pad(left%60)}`}</b></div>`;
+        bar = `<div class="bar"><span style="width:0"></span></div>`;
+      }
+    } else {
+      rem = `<div class="rem"><small>Alunos</small><b>${n}<i>/${CAPACITY}</i></b></div>`;
     }
+    const end = `${pad(Math.floor(en/60)%24)}:${pad(en%60)}`;
     const people = list.map(it=>{
       let tag = '', c = '';
       if(it.kind==='swap'){ c='swap'; tag = `no lugar de ${esc(firstName(it.fromName))}`; }
@@ -316,13 +377,63 @@ function renderDay(){
         <span class="n">${esc(it.name)}</span>${tag ? `<span class="tag">${tag}</span>` : ''}</button>`;
     }).join('');
     const add = n < CAPACITY ? `<button class="add" onclick="openExtra('${esc(t)}')">+ Adicionar aluno</button>` : '';
-    return `<div class="slot ${cls}"><div class="time">${esc(t)}<small class="${n>CAPACITY?'full':''}">${n}/${CAPACITY}</small></div><div class="people">${people}${add}</div></div>`;
+    return `<div class="cs ${cls}" data-t="${esc(t)}">
+      <div class="k ${cls==='live'?'live':''}">${k}</div>
+      <div class="hd"><div><div class="big">${esc(t)}</div>
+        <div class="range">${esc(t)} – ${end} · <span class="${n>CAPACITY?'full':''}">${n}/${CAPACITY}</span></div></div>${rem}</div>
+      <div class="people">${people}${add}</div>${bar}</div>`;
   }).join('');
+  if(!autoFocus) autoFocus = isToday ? d.times[d.times.length-1] : d.times[0];
   return `<div class="summary">
       <span class="pill"><b>${d.total}</b> ${d.total===1?'aula':'aulas'}</span>
       <span class="pill"><b>${d.times.filter(t=>d.byTime[t].some(isActive)).length}</b> horários</span>
       ${d.changes ? `<span class="pill alt"><b>${d.changes}</b> ${d.changes===1?'alteração':'alterações'}</span>` : ''}
-    </div>${slots}`;
+    </div><div class="wheel" id="wheel"><div class="sp" id="sp-top"></div>${slots}<div class="sp" id="sp-bot"></div></div>`;
+}
+
+/* Roleta do dia: o cartão mais perto do centro fica grande e azul, os outros encolhem */
+const LESSON_MIN = 60;
+let focusTime = null;   // horário centralizado (mantido quando a tela é redesenhada)
+let autoFocus = null;   // aula de agora / próxima (ou a primeira do dia)
+let lastScroll = 0;     // evita redesenhar enquanto o dedo está girando a lista
+function initWheel(){
+  const w = document.getElementById('wheel'); if(!w) return;
+  w.style.height = Math.max(240, window.innerHeight - w.getBoundingClientRect().top) + 'px';
+  const cards = w.querySelectorAll('.cs');
+  const first = cards[0], last = cards[cards.length-1];
+  const fabSpace = 70;
+  document.getElementById('sp-top').style.height = Math.max(0, w.clientHeight/2 - first.offsetHeight/2) + 'px';
+  document.getElementById('sp-bot').style.height = Math.max(fabSpace, w.clientHeight/2 - last.offsetHeight/2 + fabSpace/2) + 'px';
+  const target = [...cards].find(c=>c.dataset.t===focusTime) || [...cards].find(c=>c.dataset.t===autoFocus) || first;
+  w.scrollTop = target.offsetTop + target.offsetHeight/2 - w.clientHeight/2;
+  let raf = 0;
+  w.addEventListener('scroll', ()=>{ lastScroll = Date.now(); if(!raf) raf = requestAnimationFrame(()=>{ raf = 0; wheelFx(); }); }, {passive:true});
+  // tocar num cartão de fora do centro primeiro gira a lista até ele
+  w.addEventListener('click', e=>{
+    const c = e.target.closest('.cs');
+    if(c && !c.classList.contains('center')){
+      e.preventDefault(); e.stopPropagation();
+      w.scrollTo({ top: c.offsetTop + c.offsetHeight/2 - w.clientHeight/2, behavior:'smooth' });
+    }
+  }, true);
+  wheelFx();
+}
+function wheelFx(){
+  const w = document.getElementById('wheel'); if(!w) return;
+  const half = w.clientHeight/2, mid = w.scrollTop + half;
+  let best = null, bd = Infinity;
+  w.querySelectorAll('.cs').forEach(c=>{
+    const off = c.offsetTop + c.offsetHeight/2 - mid;
+    const a = Math.min(Math.abs(off)/half, 1);
+    const s = 1 - a*0.2;
+    // puxa o cartão encolhido para perto do centro, para não abrir buraco entre eles
+    const pull = -Math.sign(off) * c.offsetHeight*(1-s)/2;
+    c.style.transform = `translateY(${pull.toFixed(1)}px) scale(${s.toFixed(3)})`;
+    c.style.opacity = (1 - a*0.55).toFixed(2);
+    if(Math.abs(off) < bd){ bd = Math.abs(off); best = c; }
+  });
+  w.querySelectorAll('.cs.center').forEach(c=>{ if(c!==best) c.classList.remove('center'); });
+  if(best){ best.classList.add('center'); focusTime = best.dataset.t; }
 }
 
 function renderWeek(){
@@ -368,12 +479,12 @@ function renderLogin(err){
 }
 
 /* ---------- navegação ---------- */
-async function setView(v){ view = v; render(); await reloadVisible(); }
-async function shift(n){ current = addDays(current, view==='dia' ? n : 7*n); render(); await reloadVisible(); }
-async function goToday(){ current = startOfDay(new Date()); render(); await reloadVisible(); }
-async function openDay(dateISO){ current = new Date(dateISO+'T00:00'); view = 'dia'; render(); await reloadVisible(); }
+async function setView(v){ view = v; focusTime = null; render(); await reloadVisible(); }
+async function shift(n){ focusTime = null; current = addDays(current, view==='dia' ? n : 7*n); render(); await reloadVisible(); }
+async function goToday(){ focusTime = null; current = startOfDay(new Date()); render(); await reloadVisible(); }
+async function openDay(dateISO){ focusTime = null; current = new Date(dateISO+'T00:00'); view = 'dia'; render(); await reloadVisible(); }
 async function reloadVisible(){
-  try{ await refreshAdjustments(); if(!sheetOpen) render(); }
+  try{ await refreshAdjustments(); if(canRender()) render(); }
   catch(e){ toast('Sem conexão. Tentando de novo…'); }
 }
 
@@ -515,7 +626,11 @@ async function start(){
   // mantém atualizado (ex.: alteração feita em outro aparelho)
   clearInterval(start._a); clearInterval(start._s);
   start._a = setInterval(()=>{ if(!sheetOpen && document.visibilityState==='visible') reloadVisible(); }, 15000);
-  start._s = setInterval(async ()=>{ if(!sheetOpen && document.visibilityState==='visible'){ try{ await loadStudentsLight(); render(); }catch(e){} } }, 180000);
+  start._s = setInterval(async ()=>{ if(!sheetOpen && document.visibilityState==='visible'){ try{ await loadStudentsLight(); if(canRender()) render(); }catch(e){} } }, 180000);
+  // contagem regressiva da aula (atualiza mesmo sem internet)
+  clearInterval(start._t);
+  start._t = setInterval(()=>{ if(view==='dia' && canRender() && document.visibilityState==='visible') render(); }, 30000);
+  window.onresize = ()=>{ if(view==='dia' && !sheetOpen) render(); };
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && !sheetOpen) reloadVisible(); });
 }
 
