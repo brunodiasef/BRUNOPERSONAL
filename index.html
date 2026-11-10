@@ -1922,6 +1922,28 @@ function removeTrainingFromModal(){
   render();
 }
 
+/* ============ EXPORTAR AVALIAÇÕES (para o site avaliacao.brunopersonal.com.br) ============ */
+function exportAssessments(studentId){
+  const s = findStudent(studentId);
+  if(!s || !(s.assessments||[]).length){ alert('Este aluno ainda não tem avaliações para exportar.'); return; }
+  const pacote = {
+    formato: 'bruno-personal-avaliacoes', versao: 1, exportadoEm: toISO(today),
+    aluno: { nome: s.name || '', nascimento: s.birthDate || null },
+    // Fotos e anotações ficam no app; vão só as medidas
+    avaliacoes: [...s.assessments].sort((a,b)=>a.date.localeCompare(b.date)).map(a=>({
+      date: a.date, sex: a.sex || 'M', age: a.age || null, weight: a.weight || null, height: a.height || null,
+      skinfolds: {...(a.skinfolds||{})}, perimeters: {...(a.perimeters||{})}
+    }))
+  };
+  const nomeArq = (s.name||'aluno').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'aluno';
+  const blob = new Blob([JSON.stringify(pacote,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const el = document.createElement('a');
+  el.href = url; el.download = `avaliacoes-${nomeArq}-${toISO(today)}.json`;
+  document.body.appendChild(el); el.click(); el.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
 /* ============ BACKUP ============ */
 function exportBackup(){
   const blob = new Blob([JSON.stringify(DATA,null,2)], {type:'application/json'});
@@ -2653,7 +2675,7 @@ function renderAvaliacao(student, readonly){
     ${reminderBanner}
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
       <h4 style="margin-bottom:0;text-transform:none;font-size:16px;color:var(--text);">Avaliações físicas</h4>
-      ${readonly?'':`<button class="btn btn-primary" style="width:auto;padding:12px 20px;" onclick="openNewAssessmentModal()">+ Nova avaliação</button>`}
+      ${readonly?'':`<div style="display:flex;gap:8px;flex-wrap:wrap;">${sorted.length?`<button class="btn btn-secondary" style="width:auto;padding:12px 16px;" onclick="exportAssessments('${student.id}')" title="Baixa um arquivo para importar no site de relatórios">Exportar para o relatório</button>`:''}<button class="btn btn-primary" style="width:auto;padding:12px 20px;" onclick="openNewAssessmentModal()">+ Nova avaliação</button></div>`}
     </div>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">Antropometria, dobras cutâneas (protocolo Pollock 7 dobras), perimetria e fotos de evolução.</p>
     ${canCompare ? `
