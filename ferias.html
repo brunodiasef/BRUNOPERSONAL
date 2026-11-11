@@ -85,6 +85,18 @@
   .gc span{font-size:9.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gc .a{color:var(--amber);} .gc .m{color:var(--purple);} .gc .e{color:var(--green);}
   .gc .x{color:var(--text-faint);text-decoration:line-through;}
+  .gc.blocked{background:repeating-linear-gradient(45deg,#1d1f28 0 5px,#15171f 5px 10px);border-color:#2c2f3c;}
+  .gc .b{color:var(--text-soft);}
+  .slotbtns{display:flex;gap:6px;}
+  .slotbtns .addbtn{flex:1;}
+  .lockbtn{flex:none;background:none;border:1.5px dashed var(--border);color:var(--text-soft);font-size:13px;font-weight:600;padding:9px 12px;border-radius:10px;}
+  .cs.blocked{background:repeating-linear-gradient(45deg,#1a1c24 0 8px,#15171f 8px 16px);}
+  .cs.blocked::before{background:linear-gradient(135deg,#454959 0%,#2a2d38 100%);}
+  .cs.blocked .k{color:var(--text-soft);}
+  .cs.blocked .big{color:var(--text-soft);}
+  .cs.center.blocked{box-shadow:0 14px 34px rgba(0,0,0,.45);}
+  .cs.center.blocked .big{color:#fff;}
+  .cs.center .lockbtn{border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.9);}
   .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text-soft);margin:14px 0 4px;}
   .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle;}
 
@@ -212,6 +224,7 @@ const CAPACITY = 3;
 let students = [];     // [{id, name, suspended, schedule}]
 let plan = {};         // { id: ajuste }
 let feriasBase = null; // horário-base das férias já atualizado (null = usa o horário principal)
+let blocks = {};       // { id: {day, time, note} } horários bloqueados nas férias
 let view = 'dia';
 let day = (()=>{ const g = new Date().getDay(); return DAYS[(g===0 ? 1 : g) - 1].k; })();
 let sheetOpen = false;
@@ -250,11 +263,13 @@ async function loadStudentsLight(){
 }
 async function loadPlan(){
   const seq = writeSeq;
-  const [data, base] = await Promise.all([api('feriasAjustes'), api('feriasBase')]);
+  const [data, base, bl] = await Promise.all([api('feriasAjustes'), api('feriasBase'), api('feriasBloqueios')]);
   if(seq !== writeSeq) return; // houve gravação durante a leitura
   plan = data || {};
   feriasBase = base || null;
+  blocks = bl || {};
 }
+function blockAt(d, t){ return Object.values(blocks).find(b=>b.day===d && b.time===t); }
 function findStudent(id){ return students.find(s=>s.id===id); }
 function nameOf(id, fallback){
   const s = findStudent(id); if(s) return s.name;
@@ -292,6 +307,7 @@ function buildDay(dayKey){
   });
   const byTime = {};
   HOURS.forEach(h=>byTime[h] = []);
+  Object.values(blocks).forEach(b=>{ if(b.day===dayKey) byTime[b.time] = byTime[b.time] || []; });
   items.forEach(it=>{ (byTime[it.time] = byTime[it.time] || []).push(it); });
   const times = Object.keys(byTime).sort((a,b)=>toMin(a)-toMin(b));
   const order = {fixo:0, swap:1, 'moved-in':2, add:3, removed:4, 'moved-out':5};
@@ -330,7 +346,7 @@ const commitBtn = () => Object.keys(plan).length ? `<button class="commit" oncli
 
 function renderDay(){
   const d = buildDay(day);
-  const free = d.times.filter(t=>toMin(t)>=300 && toMin(t)<=1260 && !d.byTime[t].some(isActive)).length;
+  const free = d.times.filter(t=>toMin(t)>=300 && toMin(t)<=1260 && !d.byTime[t].some(isActive) && !blockAt(day, t)).length;
   const now = new Date(), g = now.getDay();
   const isToday = g>0 && DAYS[g-1].k===day; // o plano das férias vale para o dia da semana de hoje
   const nowMin = now.getHours()*60 + now.getMinutes() + now.getSeconds()/60;
@@ -352,8 +368,16 @@ function renderDay(){
         <span class="n">${esc(it.name)}</span>${tag ? `<span class="tag">${tag}</span>` : ''}</button>`;
     }).join('');
     const add = n < CAPACITY ? `<button class="addbtn" onclick="openAdd('${esc(t)}')">${n ? '+ Incluir aluno' : 'Livre · + Incluir aluno'}</button>` : '';
+    const bl = blockAt(day, t);
+    if(bl){
+      return `<div class="cs blocked" data-t="${esc(t)}"><div class="hd"><div><div class="k">🔒 Bloqueado</div><div class="big">${esc(t)}</div>
+        ${bl.note ? `<div class="range">${esc(bl.note)}</div>` : ''}</div></div>
+        ${people ? `<div class="people">${people}</div>` : ''}
+        <button class="lockbtn" style="width:100%;margin-top:6px" onclick="openUnblock('${bl.id}')">Desbloquear</button></div>`;
+    }
+    const lock = n ? '' : `<button class="lockbtn" onclick="openBlockForm('${esc(t)}')">🔒 Bloquear</button>`;
     if(!list.length){
-      return `<div class="cs free" data-t="${esc(t)}"><div class="hd"><div><div class="k">Livre</div><div class="big">${esc(t)}</div></div></div>${add}</div>`;
+      return `<div class="cs free" data-t="${esc(t)}"><div class="hd"><div><div class="k">Livre</div><div class="big">${esc(t)}</div></div></div><div class="slotbtns">${add}${lock}</div></div>`;
     }
     if(n) order++;
     let cls = '', k = n ? `${order}ª aula` : 'Horário vago', rem = '', bar = '';
@@ -381,7 +405,7 @@ function renderDay(){
       <div class="k ${cls==='live'?'live':''}">${k}</div>
       <div class="hd"><div><div class="big">${esc(t)}</div>
         <div class="range">${esc(t)} – ${end} · <span class="${n>CAPACITY?'full':''}">${n}/${CAPACITY}</span></div></div>${rem}</div>
-      <div class="people">${people}${add}</div>${bar}</div>`;
+      <div class="people">${people}${lock ? `<div class="slotbtns">${add}${lock}</div>` : add}</div>${bar}</div>`;
   }).join('');
   if(!autoFocus) autoFocus = d.times.find(t=>d.byTime[t].some(isActive)) || d.times[0];
   return `<div class="summary">
@@ -455,7 +479,8 @@ function renderWeek(changedDays){
         if(it.kind==='add') return `<span class="e">${nm}</span>`;
         return `<span>${nm}</span>`;
       }).join('');
-      cells += `<button class="gc ${n?'':'free'} ${n>CAPACITY?'full':''}" onclick="openDayAt('${d.k}','${esc(t)}')" aria-label="${d.n} ${esc(t)}">${names}</button>`;
+      const bl = blockAt(d.k, t);
+      cells += `<button class="gc ${n||bl?'':'free'} ${bl?'blocked':''} ${n>CAPACITY?'full':''}" onclick="openDayAt('${d.k}','${esc(t)}')" aria-label="${d.n} ${esc(t)}">${bl ? `<span class="b">🔒 ${esc(firstName(bl.note||''))}</span>` : ''}${names}</button>`;
     });
   });
   return `<div class="summary">
@@ -463,7 +488,7 @@ function renderWeek(changedDays){
       ${nChanges ? `<span class="pill alt"><b>${nChanges}</b> ${nChanges===1?'mudança':'mudanças'}</span>` : `<span class="pill">${feriasBase ? 'horário de férias atualizado' : 'igual ao horário principal'}</span>`}
       ${commitBtn()}
     </div>
-    <div class="legend"><span><i style="background:var(--text)"></i>principal</span><span><i style="background:var(--amber)"></i>trocado</span><span><i style="background:var(--purple)"></i>mudou de horário</span><span><i style="background:var(--green)"></i>incluído</span><span><i style="background:var(--text-faint)"></i>excluído</span></div>
+    <div class="legend"><span><i style="background:var(--text)"></i>principal</span><span><i style="background:var(--amber)"></i>trocado</span><span><i style="background:var(--purple)"></i>mudou de horário</span><span><i style="background:var(--green)"></i>incluído</span><span><i style="background:var(--text-faint)"></i>excluído</span><span>🔒 bloqueado</span></div>
     <div class="grid">${cells}</div>
     ${nChanges || feriasBase ? `<div class="tools"><button class="linkbtn" onclick="confirmReset()">Recomeçar do horário principal</button></div>` : ''}`;
 }
@@ -617,11 +642,13 @@ function saveMove(btn){
   const toDay = document.getElementById('dy').value, to = readTime();
   if(!to){ toast('Escolha o horário.'); return; }
   if(toDay === day && to === ctx.time){ toast('Escolha outro dia ou horário.'); return; }
+  if(blockAt(toDay, to)){ toast('Esse horário está bloqueado.'); return; }
   return putAdj({ type:'move', sid:ctx.sid, name:nameOf(ctx.sid), fromDay:day, from:ctx.time, toDay, to }, btn);
 }
 function saveAdd(btn){
   const d = document.getElementById('dy').value, time = readTime();
   if(!time){ toast('Escolha o horário.'); return; }
+  if(blockAt(d, time)){ toast('Esse horário está bloqueado.'); return; }
   const who = readWho(); if(!who){ toast('Escolha o aluno.'); return; }
   day = d;
   return putAdj({ type:'add', day:d, time, note: document.getElementById('note').value.trim(), ...who }, btn);
@@ -642,6 +669,38 @@ async function resetAll(btn){
     plan = {}; feriasBase = null;
     closeSheet(); focusTime = null; render(); toast('Voltou ao horário principal');
   }catch(e){ btn.disabled = false; btn.textContent = 'Apagar mudanças'; toast('Não foi possível apagar. Verifique a internet.'); }
+}
+
+/* ---------- bloquear horário ----------
+   Fica em /feriasBloqueios/{id}; vale na hora (não depende de "Atualizar horário"). */
+function openBlockForm(t){
+  openSheet(`<h2>Bloquear horário</h2><div class="sub">${esc(dayInfo(day).n)} · ${esc(t)} · nas férias<br>Ninguém pode ser incluído neste horário enquanto estiver bloqueado.</div>
+    <label class="f">Motivo (opcional)</label><input class="in" id="bnote" placeholder="Ex.: almoço, compromisso" maxlength="30">
+    <div class="row2"><button class="btn ghost" onclick="closeSheet()">Cancelar</button><button class="btn pri" onclick="saveBlock('${esc(t)}', this)">Bloquear</button></div>`);
+}
+async function saveBlock(t, btn){
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  const b = { id: uid(), day, time: t, note: document.getElementById('bnote').value.trim(), createdAt: new Date().toISOString() };
+  try{
+    writeSeq++;
+    await api(`feriasBloqueios/${b.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(b) });
+    blocks[b.id] = b;
+    closeSheet(); render(); toast('Horário bloqueado');
+  }catch(e){ btn.disabled = false; btn.textContent = 'Bloquear'; toast('Não foi possível salvar. Verifique a internet.'); }
+}
+function openUnblock(id){
+  const b = blocks[id]; if(!b) return;
+  openSheet(`<h2>Horário bloqueado</h2><div class="sub">${esc(dayInfo(b.day).n)} · ${esc(b.time)}${b.note ? ' · ' + esc(b.note) : ''}</div>
+    <button class="act" onclick="unblock('${id}')"><span class="ic" style="background:var(--green-dim);color:var(--green)">🔓</span><span>Desbloquear<small>O horário volta a ficar livre</small></span></button>
+    <button class="act" onclick="closeSheet()"><span class="ic" style="background:var(--surface-3)">✕</span>Fechar</button>`);
+}
+async function unblock(id){
+  try{
+    writeSeq++;
+    await api(`feriasBloqueios/${id}`, { method:'DELETE' });
+    delete blocks[id];
+    closeSheet(); render(); toast('Horário desbloqueado');
+  }catch(e){ toast('Não foi possível desbloquear. Verifique a internet.'); }
 }
 
 /* ---------- atualizar o horário das férias ----------
