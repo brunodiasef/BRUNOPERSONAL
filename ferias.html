@@ -206,6 +206,7 @@ const DAYS = [
   {k:'quinta', n:'Quinta', s:'Qui'}, {k:'sexta', n:'Sexta', s:'Sex'}, {k:'sabado', n:'Sábado', s:'Sáb'}
 ];
 const HOURS = Array.from({length:17}, (_,i)=>`${String(5+i).padStart(2,'0')}:00`); // 05:00 … 21:00
+const HALF_HOURS = Array.from({length:33}, (_,i)=>`${String(5+Math.floor(i/2)).padStart(2,'0')}:${i%2?'30':'00'}`); // 05:00, 05:30 … 21:00 (só no menu de horários)
 const CAPACITY = 3;
 
 let students = [];     // [{id, name, suspended, schedule}]
@@ -518,7 +519,7 @@ function studentOptions(){
 }
 function dayOptions(sel){ return DAYS.map(d=>`<option value="${d.k}" ${d.k===sel?'selected':''}>${d.n}</option>`).join(''); }
 function timeOptions(sel){
-  const opts = [...new Set([...HOURS, sel].filter(Boolean))].sort((a,b)=>toMin(a)-toMin(b));
+  const opts = [...new Set([...HALF_HOURS, sel].filter(Boolean))].sort((a,b)=>toMin(a)-toMin(b));
   return opts.map(t=>`<option value="${t}" ${t===sel?'selected':''}>${t}</option>`).join('') + `<option value="__outro">Outro horário…</option>`;
 }
 function toggleOther(sel, wrapId){ document.getElementById(wrapId).style.display = sel.value==='__outro' ? 'block' : 'none'; }
